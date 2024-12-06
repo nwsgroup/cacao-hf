@@ -1,0 +1,11 @@
+huggingface_hub
+datasets
+pandas
+matplotlib
+seaborn
+torch
+accelerate
+tqdm
+transformers>=4.22.0
+torchvision
+evaluate
