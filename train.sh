@@ -18,7 +18,7 @@ python run_image_classification.py \
     --do_eval \
     --model_name_or_path google/efficientnet-b0 \
     --push_to_hub \
-    --push_to_hub_model_id resnet-50-cocoa \
+    --push_to_hub_model_id efficientnet-b0-cocoa \
     --learning_rate 2e-5 \
     --num_train_epochs 100 \
     --per_device_train_batch_size 8 \
