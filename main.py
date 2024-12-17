@@ -222,22 +222,9 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--do_train",
-        action="store_true",
-        help="Si se especifica, ejecuta el entrenamiento del modelo."
-    )
-
-    parser.add_argument(
         "--do_eval",
         action="store_true",
         help="Si se especifica, ejecuta la evaluación del modelo."
-    )
-
-    parser.add_argument(
-        "--remove_unused_columns",
-        type=str2bool,
-        default=True,
-        help="Determina si se deben eliminar columnas no utilizadas del conjunto de datos."
     )
 
     parser.add_argument(
@@ -247,57 +234,6 @@ def parse_args():
         help="El nombre del repositorio para sincronizar con el directorio local `output_dir`."
     )
 
-    parser.add_argument(
-        "--logging_strategy",
-        type=str,
-        default="steps",
-        choices=["steps", "epoch"],
-        help="La estrategia para el registro de logs. Puede ser 'steps' o 'epoch'."
-    )
-
-    parser.add_argument(
-        "--logging_steps",
-        type=int,
-        default=10,
-        help="Número de pasos entre cada registro cuando `logging_strategy` es 'steps'."
-    )
-
-    parser.add_argument(
-        "--eval_strategy",
-        type=str,
-        default="epoch",
-        choices=["steps", "epoch"],
-        help="La estrategia para la evaluación. Puede ser 'steps' o 'epoch'."
-    )
-
-    parser.add_argument(
-        "--save_strategy",
-        type=str,
-        default="epoch",
-        choices=["steps", "epoch"],
-        help="La estrategia para guardar el modelo. Puede ser 'steps' o 'epoch'."
-    )
-
-    parser.add_argument(
-        "--load_best_model_at_end",
-        type=str2bool,
-        default=False,
-        help="Determina si se debe cargar el mejor modelo al final del entrenamiento."
-    )
-
-    parser.add_argument(
-        "--save_total_limit",
-        type=int,
-        default=3,
-        help="Número máximo de modelos guardados. Los modelos más antiguos se eliminarán cuando se supere este límite."
-    )
-
-    parser.add_argument(
-        "--run_name",
-        type=str,
-        default=None,
-        help="Nombre de la ejecución en Weights & Biases (W&B)."
-    )
     
     args = parser.parse_args()
 
