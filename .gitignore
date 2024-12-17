@@ -1,4 +1,6 @@
 login_hf.py.env
 transformers/
 wandb_env.sh
-
+.env
+.gitignore
+api_key_hf.sh
