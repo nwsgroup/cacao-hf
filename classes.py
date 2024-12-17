@@ -1,8 +1,14 @@
 from huggingface_hub import login
 import matplotlib.pyplot as plt
 from collections import Counter
+import os
 
-login("HF_API_KEY")
+api_key = os.getenv("HF_API_KEY")
+
+if api_key:
+    login(api_key)
+else:
+    raise ValueError("HF_API_KEY environment variable not found!")
 
 from datasets import load_dataset
 
