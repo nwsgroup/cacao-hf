@@ -18,6 +18,7 @@ import argparse
 import json
 import logging
 import math
+import wandb
 import os
 from pathlib import Path
 
@@ -39,10 +40,19 @@ from torchvision.transforms import (
     RandomResizedCrop,
     Resize,
     ToTensor,
+    ColorJitter,
+    RandomRotation,
+    RandomAffine,
+    RandomVerticalFlip,
+    RandomGrayscale,
+    RandomPerspective
 )
 from tqdm.auto import tqdm
 
 import transformers
+from sklearn.metrics import confusion_matrix
+from torchvision.transforms.functional import to_pil_image
+import numpy as np
 from transformers import AutoConfig, AutoImageProcessor, AutoModelForImageClassification, SchedulerType, get_scheduler
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
@@ -55,7 +65,16 @@ logger = get_logger(__name__)
 
 require_version("datasets>=2.0.0", "To fix: pip install -r examples/pytorch/image-classification/requirements.txt")
 
-
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+        
 def parse_args():
     parser = argparse.ArgumentParser(description="Fine-tune a Transformers model on an image classification dataset")
     parser.add_argument(
@@ -201,6 +220,85 @@ def parse_args():
         default="label",
         help="The name of the dataset column containing the labels. Defaults to 'label'.",
     )
+
+    parser.add_argument(
+        "--do_train",
+        action="store_true",
+        help="Si se especifica, ejecuta el entrenamiento del modelo."
+    )
+
+    parser.add_argument(
+        "--do_eval",
+        action="store_true",
+        help="Si se especifica, ejecuta la evaluación del modelo."
+    )
+
+    parser.add_argument(
+        "--remove_unused_columns",
+        type=str2bool,
+        default=True,
+        help="Determina si se deben eliminar columnas no utilizadas del conjunto de datos."
+    )
+
+    parser.add_argument(
+        "--push_to_hub_model_id",
+        type=str,
+        default=None,
+        help="El nombre del repositorio para sincronizar con el directorio local `output_dir`."
+    )
+
+    parser.add_argument(
+        "--logging_strategy",
+        type=str,
+        default="steps",
+        choices=["steps", "epoch"],
+        help="La estrategia para el registro de logs. Puede ser 'steps' o 'epoch'."
+    )
+
+    parser.add_argument(
+        "--logging_steps",
+        type=int,
+        default=10,
+        help="Número de pasos entre cada registro cuando `logging_strategy` es 'steps'."
+    )
+
+    parser.add_argument(
+        "--eval_strategy",
+        type=str,
+        default="epoch",
+        choices=["steps", "epoch"],
+        help="La estrategia para la evaluación. Puede ser 'steps' o 'epoch'."
+    )
+
+    parser.add_argument(
+        "--save_strategy",
+        type=str,
+        default="epoch",
+        choices=["steps", "epoch"],
+        help="La estrategia para guardar el modelo. Puede ser 'steps' o 'epoch'."
+    )
+
+    parser.add_argument(
+        "--load_best_model_at_end",
+        type=str2bool,
+        default=False,
+        help="Determina si se debe cargar el mejor modelo al final del entrenamiento."
+    )
+
+    parser.add_argument(
+        "--save_total_limit",
+        type=int,
+        default=3,
+        help="Número máximo de modelos guardados. Los modelos más antiguos se eliminarán cuando se supere este límite."
+    )
+
+    parser.add_argument(
+        "--run_name",
+        type=str,
+        default=None,
+        help="Nombre de la ejecución en Weights & Biases (W&B)."
+    )
+    
     args = parser.parse_args()
 
     # Sanity checks
@@ -222,13 +320,10 @@ def parse_args():
 def main():
     args = parse_args()
 
-    # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
-    # information sent is the one passed as arguments along with your Python/PyTorch versions.
+    # Enviar telemetría
     send_example_telemetry("run_image_classification_no_trainer", args)
 
-    # Initialize the accelerator. We will let the accelerator handle device placement for us in this example.
-    # If we're using tracking, we also need to initialize it here and it will by default pick up all supported trackers
-    # in the environment
+    # Inicializar el acelerador
     accelerator_log_kwargs = {}
 
     if args.with_tracking:
@@ -238,7 +333,7 @@ def main():
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps, **accelerator_log_kwargs)
 
     logger.info(accelerator.state)
-    # Make one log on every process with the configuration for debugging.
+    # Configuración de logging
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
@@ -252,18 +347,18 @@ def main():
         datasets.utils.logging.set_verbosity_error()
         transformers.utils.logging.set_verbosity_error()
 
-    # If passed along, set the training seed now.
+    # Configurar la semilla
     if args.seed is not None:
         set_seed(args.seed)
 
-    # Handle the repository creation
+    # Manejar la creación del repositorio
     if accelerator.is_main_process:
         if args.push_to_hub:
-            # Retrieve of infer repo_name
-            repo_name = args.hub_model_id
+            # Inferir repo_name
+            repo_name = args.push_to_hub_model_id
             if repo_name is None:
                 repo_name = Path(args.output_dir).absolute().name
-            # Create repo and retrieve repo_id
+            # Crear repo y obtener repo_id
             api = HfApi()
             repo_id = api.create_repo(repo_name, exist_ok=True, token=args.hub_token).repo_id
 
@@ -276,13 +371,8 @@ def main():
             os.makedirs(args.output_dir, exist_ok=True)
     accelerator.wait_for_everyone()
 
-    # Get the datasets: you can either provide your own training and evaluation files (see below)
-    # or specify a Dataset from the hub (the dataset will be downloaded automatically from the datasets Hub).
-
-    # In distributed training, the load_dataset function guarantees that only one local process can concurrently
-    # download the dataset.
+    # Cargar el dataset
     if args.dataset_name is not None:
-        # Downloading and loading a dataset from the hub.
         dataset = load_dataset(args.dataset_name, trust_remote_code=args.trust_remote_code)
     else:
         data_files = {}
@@ -294,40 +384,34 @@ def main():
             "imagefolder",
             data_files=data_files,
         )
-        # See more about loading custom images at
-        # https://huggingface.co/docs/datasets/v2.0.0/en/image_process#imagefolder.
+        # Más detalles: https://huggingface.co/docs/datasets/v2.0.0/en/image_process#imagefolder.
 
+    # Comprobar las columnas del dataset
     dataset_column_names = dataset["train"].column_names if "train" in dataset else dataset["validation"].column_names
     if args.image_column_name not in dataset_column_names:
         raise ValueError(
-            f"--image_column_name {args.image_column_name} not found in dataset '{args.dataset_name}'. "
-            "Make sure to set `--image_column_name` to the correct audio column - one of "
-            f"{', '.join(dataset_column_names)}."
+            f"--image_column_name {args.image_column_name} no encontrado en el dataset '{args.dataset_name}'. "
+            "Asegúrate de establecer `--image_column_name` al nombre correcto de la columna de imagen."
         )
     if args.label_column_name not in dataset_column_names:
         raise ValueError(
-            f"--label_column_name {args.label_column_name} not found in dataset '{args.dataset_name}'. "
-            "Make sure to set `--label_column_name` to the correct text column - one of "
-            f"{', '.join(dataset_column_names)}."
+            f"--label_column_name {args.label_column_name} no encontrado en el dataset '{args.dataset_name}'. "
+            "Asegúrate de establecer `--label_column_name` al nombre correcto de la columna de etiquetas."
         )
 
-    # If we don't have a validation split, split off a percentage of train as validation.
-    args.train_val_split = None if "validation" in dataset.keys() else args.train_val_split
-    if isinstance(args.train_val_split, float) and args.train_val_split > 0.0:
-        split = dataset["train"].train_test_split(args.train_val_split)
-        dataset["train"] = split["train"]
-        dataset["validation"] = split["test"]
+    # Dividir el dataset si no hay una validación
+    if "validation" not in dataset.keys() and args.train_val_split is not None:
+        if isinstance(args.train_val_split, float) and args.train_val_split > 0.0:
+            split = dataset["train"].train_test_split(args.train_val_split)
+            dataset["train"] = split["train"]
+            dataset["validation"] = split["test"]
 
-    # Prepare label mappings.
-    # We'll include these in the model's config to get human readable labels in the Inference API.
+    # Preparar las etiquetas
     labels = dataset["train"].features[args.label_column_name].names
     label2id = {label: str(i) for i, label in enumerate(labels)}
     id2label = {str(i): label for i, label in enumerate(labels)}
 
-    # Load pretrained model and image processor
-    #
-    # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
-    # download model & vocab.
+    # Cargar el modelo y el procesador de imágenes preentrenados
     config = AutoConfig.from_pretrained(
         args.model_name_or_path,
         num_labels=len(labels),
@@ -344,14 +428,11 @@ def main():
         args.model_name_or_path,
         from_tf=bool(".ckpt" in args.model_name_or_path),
         config=config,
-        num_labels=6,
         ignore_mismatched_sizes=args.ignore_mismatched_sizes,
         trust_remote_code=args.trust_remote_code,
     )
 
-    # Preprocessing the datasets
-
-    # Define torchvision transforms to be applied to each image.
+    # Preprocesamiento de los datasets
     if "shortest_edge" in image_processor.size:
         size = image_processor.size["shortest_edge"]
     else:
@@ -364,7 +445,13 @@ def main():
     train_transforms = Compose(
         [
             RandomResizedCrop(size),
-            RandomHorizontalFlip(),
+            RandomHorizontalFlip(p=0.5),  
+            RandomVerticalFlip(p=0.2),
+            RandomRotation(degrees=15),  
+            RandomAffine(degrees=0, translate=(0.1, 0.1)),  
+            ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+            RandomGrayscale(p=0.1),
+            RandomPerspective(distortion_scale=0.2, p=0.5),
             ToTensor(),
             normalize,
         ]
@@ -379,14 +466,14 @@ def main():
     )
 
     def preprocess_train(example_batch):
-        """Apply _train_transforms across a batch."""
+        """Aplicar transformaciones de entrenamiento en un batch."""
         example_batch["pixel_values"] = [
             train_transforms(image.convert("RGB")) for image in example_batch[args.image_column_name]
         ]
         return example_batch
 
     def preprocess_val(example_batch):
-        """Apply _val_transforms across a batch."""
+        """Aplicar transformaciones de validación en un batch."""
         example_batch["pixel_values"] = [
             val_transforms(image.convert("RGB")) for image in example_batch[args.image_column_name]
         ]
@@ -395,14 +482,14 @@ def main():
     with accelerator.main_process_first():
         if args.max_train_samples is not None:
             dataset["train"] = dataset["train"].shuffle(seed=args.seed).select(range(args.max_train_samples))
-        # Set the training transforms
+        # Establecer las transformaciones de entrenamiento
         train_dataset = dataset["train"].with_transform(preprocess_train)
         if args.max_eval_samples is not None:
             dataset["validation"] = dataset["validation"].shuffle(seed=args.seed).select(range(args.max_eval_samples))
-        # Set the validation transforms
+        # Establecer las transformaciones de validación
         eval_dataset = dataset["validation"].with_transform(preprocess_val)
 
-    # DataLoaders creation:
+    # Crear DataLoaders
     def collate_fn(examples):
         pixel_values = torch.stack([example["pixel_values"] for example in examples])
         labels = torch.tensor([example[args.label_column_name] for example in examples])
@@ -414,7 +501,6 @@ def main():
     eval_dataloader = DataLoader(eval_dataset, collate_fn=collate_fn, batch_size=args.per_device_eval_batch_size)
 
     # Optimizer
-    # Split weights in two groups, one with weight decay and the other not.
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
         {
@@ -428,7 +514,7 @@ def main():
     ]
     optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=args.learning_rate)
 
-    # Scheduler and math around the number of training steps.
+    # Scheduler y cálculo de pasos de entrenamiento
     overrode_max_train_steps = False
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
     if args.max_train_steps is None:
@@ -444,64 +530,70 @@ def main():
         else args.max_train_steps * accelerator.num_processes,
     )
 
-    # Prepare everything with our `accelerator`.
+    # Preparar todo con el acelerador
     model, optimizer, train_dataloader, eval_dataloader, lr_scheduler = accelerator.prepare(
         model, optimizer, train_dataloader, eval_dataloader, lr_scheduler
     )
 
-    # We need to recalculate our total training steps as the size of the training dataloader may have changed.
+    # Recalcular los pasos de entrenamiento si es necesario
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
     if overrode_max_train_steps:
         args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
-    # Afterwards we recalculate our number of training epochs
+    # Recalcular el número de épocas
     args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
 
-    # Figure out how many steps we should save the Accelerator states
+    # Determinar cuándo guardar los estados del acelerador
     checkpointing_steps = args.checkpointing_steps
     if checkpointing_steps is not None and checkpointing_steps.isdigit():
         checkpointing_steps = int(checkpointing_steps)
 
-    # We need to initialize the trackers we use, and also store our configuration.
-    # The trackers initializes automatically on the main process.
+    # Inicializar rastreadores (trackers) si es necesario
     if args.with_tracking:
         experiment_config = vars(args)
-        # TensorBoard cannot log Enums, need the raw value
+        # TensorBoard no puede registrar Enums, necesitamos el valor crudo
         experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
         accelerator.init_trackers("image_classification_no_trainer", experiment_config)
 
-    # Get the metric function
-    metric = evaluate.load("accuracy")
+    # Cargar funciones de métricas
+    metric_accuracy = evaluate.load("accuracy")
+    metric_precision = evaluate.load("precision")
+    metric_recall = evaluate.load("recall")
+    metric_f1 = evaluate.load("f1")
+    # No se carga 'specificity' directamente
 
-    # Train!
+    # Calcular el tamaño total del batch
     total_batch_size = args.per_device_train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
 
-    logger.info("***** Running training *****")
-    logger.info(f"  Num examples = {len(train_dataset)}")
-    logger.info(f"  Num Epochs = {args.num_train_epochs}")
-    logger.info(f"  Instantaneous batch size per device = {args.per_device_train_batch_size}")
-    logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
-    logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
-    logger.info(f"  Total optimization steps = {args.max_train_steps}")
-    # Only show the progress bar once on each machine.
+    logger.info("***** Iniciando entrenamiento *****")
+    logger.info(f"  Número de ejemplos = {len(train_dataset)}")
+    logger.info(f"  Número de épocas = {args.num_train_epochs}")
+    logger.info(f"  Tamaño de batch instantáneo por dispositivo = {args.per_device_train_batch_size}")
+    logger.info(f"  Tamaño total de batch (con paralelo, distribuido & acumulación) = {total_batch_size}")
+    logger.info(f"  Pasos de acumulación de gradiente = {args.gradient_accumulation_steps}")
+    logger.info(f"  Pasos totales de optimización = {args.max_train_steps}")
+    
+    # Mostrar la barra de progreso solo una vez en cada máquina
     progress_bar = tqdm(range(args.max_train_steps), disable=not accelerator.is_local_main_process)
     completed_steps = 0
     starting_epoch = 0
-    # Potentially load in the weights and states from a previous save
+    resume_step = None  # Inicializar para evitar errores
+
+    # Cargar desde un checkpoint si es necesario
     if args.resume_from_checkpoint:
-        if args.resume_from_checkpoint is not None or args.resume_from_checkpoint != "":
+        if args.resume_from_checkpoint is not None and args.resume_from_checkpoint != "":
             checkpoint_path = args.resume_from_checkpoint
             path = os.path.basename(args.resume_from_checkpoint)
         else:
-            # Get the most recent checkpoint
+            # Obtener el checkpoint más reciente
             dirs = [f.name for f in os.scandir(os.getcwd()) if f.is_dir()]
             dirs.sort(key=os.path.getctime)
-            path = dirs[-1]  # Sorts folders by date modified, most recent checkpoint is the last
+            path = dirs[-1]  # Ordena carpetas por fecha de modificación, el checkpoint más reciente es el último
             checkpoint_path = path
             path = os.path.basename(checkpoint_path)
 
-        accelerator.print(f"Resumed from checkpoint: {checkpoint_path}")
+        accelerator.print(f"Reanudando desde el checkpoint: {checkpoint_path}")
         accelerator.load_state(checkpoint_path)
-        # Extract `epoch_{i}` or `step_{i}`
+        # Extraer `epoch_{i}` o `step_{i}`
         training_difference = os.path.splitext(path)[0]
 
         if "epoch" in training_difference:
@@ -509,13 +601,13 @@ def main():
             resume_step = None
             completed_steps = starting_epoch * num_update_steps_per_epoch
         else:
-            # need to multiply `gradient_accumulation_steps` to reflect real steps
+            # Necesitamos multiplicar `gradient_accumulation_steps` para reflejar los pasos reales
             resume_step = int(training_difference.replace("step_", "")) * args.gradient_accumulation_steps
             starting_epoch = resume_step // len(train_dataloader)
             completed_steps = resume_step // args.gradient_accumulation_steps
             resume_step -= starting_epoch * len(train_dataloader)
 
-    # update the progress_bar if load from checkpoint
+    # Actualizar la barra de progreso si se carga desde un checkpoint
     progress_bar.update(completed_steps)
 
     for epoch in range(starting_epoch, args.num_train_epochs):
@@ -523,7 +615,7 @@ def main():
         if args.with_tracking:
             total_loss = 0
         if args.resume_from_checkpoint and epoch == starting_epoch and resume_step is not None:
-            # We skip the first `n` batches in the dataloader when resuming from a checkpoint
+            # Saltar los primeros `n` batches en el dataloader al reanudar desde un checkpoint
             active_dataloader = accelerator.skip_first_batches(train_dataloader, resume_step)
         else:
             active_dataloader = train_dataloader
@@ -531,7 +623,7 @@ def main():
             with accelerator.accumulate(model):
                 outputs = model(**batch)
                 loss = outputs.loss
-                # We keep track of the loss at each epoch
+                # Seguimiento de la pérdida en cada época
                 if args.with_tracking:
                     total_loss += loss.detach().float()
                 accelerator.backward(loss)
@@ -539,7 +631,7 @@ def main():
                 lr_scheduler.step()
                 optimizer.zero_grad()
 
-            # Checks if the accelerator has performed an optimization step behind the scenes
+            # Verificar si el acelerador ha realizado un paso de optimización detrás de escena
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 completed_steps += 1
@@ -572,55 +664,157 @@ def main():
             if completed_steps >= args.max_train_steps:
                 break
 
-        model.eval()
-        for step, batch in enumerate(eval_dataloader):
-            with torch.no_grad():
-                outputs = model(**batch)
-            predictions = outputs.logits.argmax(dim=-1)
-            predictions, references = accelerator.gather_for_metrics((predictions, batch["labels"]))
-            metric.add_batch(
-                predictions=predictions,
-                references=references,
-            )
-
-        eval_metric = metric.compute()
-        logger.info(f"epoch {epoch}: {eval_metric}")
-
-        if args.with_tracking:
-            accelerator.log(
-                {
-                    "accuracy": eval_metric,
-                    "train_loss": total_loss.item() / len(train_dataloader),
-                    "epoch": epoch,
-                    "step": completed_steps,
-                },
-                step=completed_steps,
-            )
-
-        if args.push_to_hub and epoch < args.num_train_epochs - 1:
-            accelerator.wait_for_everyone()
-            unwrapped_model = accelerator.unwrap_model(model)
-            unwrapped_model.save_pretrained(
-                args.output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
-            )
-            if accelerator.is_main_process:
-                image_processor.save_pretrained(args.output_dir)
-                api.upload_folder(
-                    commit_message=f"Training in progress epoch {epoch}",
-                    folder_path=args.output_dir,
-                    repo_id=repo_id,
-                    repo_type="model",
-                    token=args.hub_token,
+        # Evaluación después de cada época si está habilitado
+        if args.do_eval:
+            model.eval()
+            all_predictions = []
+            all_references = []
+            all_images = []
+            for step, batch in enumerate(eval_dataloader):
+                with torch.no_grad():
+                    outputs = model(**batch)
+                predictions = outputs.logits.argmax(dim=-1)
+                predictions, references = accelerator.gather_for_metrics((predictions, batch["labels"]))
+                metric_accuracy.add_batch(
+                    predictions=predictions,
+                    references=references,
+                )
+                metric_precision.add_batch(
+                    predictions=predictions,
+                    references=references,
+                )
+                metric_recall.add_batch(
+                    predictions=predictions,
+                    references=references,
+                )
+                metric_f1.add_batch(
+                    predictions=predictions,
+                    references=references,
                 )
 
-        if args.checkpointing_steps == "epoch":
-            output_dir = f"epoch_{epoch}"
-            if args.output_dir is not None:
-                output_dir = os.path.join(args.output_dir, output_dir)
-            accelerator.save_state(output_dir)
+                # Convertir a listas de Python y extender las listas acumuladoras
+                all_predictions.extend(predictions.cpu().numpy())
+                all_references.extend(references.cpu().numpy())
+                all_images.extend(batch["pixel_values"].cpu().numpy())
 
-    if args.with_tracking:
-        accelerator.end_training()
+            # Calcular métricas
+            accuracy = metric_accuracy.compute()
+            precision = metric_precision.compute(average='weighted')
+            recall = metric_recall.compute(average='weighted')
+            f1 = metric_f1.compute(average='weighted')
+
+            # Calcular especificidad manualmente
+            cm = confusion_matrix(all_references, all_predictions)
+            specificity_per_class = []
+            for i in range(len(cm)):
+                TN = cm.sum() - (cm[i, :].sum() + cm[:, i].sum() - cm[i, i])
+                FP = cm[:, i].sum() - cm[i, i]
+                specificity = TN / (TN + FP) if (TN + FP) > 0 else 0
+                specificity_per_class.append(specificity)
+            specificity = {
+                'specificity_per_class': specificity_per_class,
+                'mean_specificity': sum(specificity_per_class) / len(specificity_per_class)
+            }
+
+            eval_metric = accuracy  # Puedes combinar todas las métricas si lo deseas
+            logger.info(f"Época {epoch}: {eval_metric}")
+
+            if args.with_tracking:
+                accelerator.log(
+                    {
+                        "accuracy": accuracy,
+                        "precision": precision,
+                        "recall": recall,
+                        "f1": f1,
+                        "specificity": specificity,
+                        "train_loss": total_loss.item() / len(train_dataloader),
+                        "epoch": epoch,
+                        "step": completed_steps,
+                    },
+                    step=completed_steps,
+                )
+
+            # Seleccionar una muestra de imágenes para loguear
+            num_images_to_log = 10  # Puedes ajustar este número según tus necesidades
+            num_images_to_log = min(num_images_to_log, len(all_images))
+            sample_indices = np.random.choice(len(all_images), num_images_to_log, replace=False)
+            sample_images = [all_images[i] for i in sample_indices]
+            sample_predictions = [all_predictions[i] for i in sample_indices]
+            sample_references = [all_references[i] for i in sample_indices]
+
+            pil_images = []
+            captions = []
+            for idx in range(num_images_to_log):
+                img = sample_images[idx]
+                pred = sample_predictions[idx]
+                ref = sample_references[idx]
+                
+                # Si las imágenes fueron normalizadas, desnormalizarlas para una visualización correcta
+                if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std"):
+                    img = img * np.array(image_processor.image_std).reshape(-1, 1, 1) + np.array(image_processor.image_mean).reshape(-1, 1, 1)
+                    img = np.clip(img, 0, 1)
+
+                # Convertir a tensor de PyTorch
+                img_tensor = torch.tensor(img)
+
+                # Convertir a PIL Image
+                pil_img = to_pil_image(img_tensor)
+                pil_images.append(pil_img)
+
+                # Preparar el caption con la etiqueta real y predicha
+                caption = f"Real: {labels[ref]}, Predicción: {labels[pred]}"
+                captions.append(caption)
+
+            # Logear la matriz de confusión y las imágenes en W&B
+            if args.with_tracking and 'wandb' in args.report_to:
+                wandb_api_key = os.getenv('WANDB_API_KEY')
+                if not wandb_api_key:
+                    raise ValueError("W&B API key not found in the environment. Please set the WANDB_API_KEY environment variable.")
+                wandb.login(key=wandb_api_key)
+                conf_matrix = wandb.plot.confusion_matrix(
+                    probs=None,
+                    y_true=all_references,
+                    preds=all_predictions,
+                    class_names=labels
+                )
+                wandb.log({"conf_mat": conf_matrix}, step=completed_steps)
+
+                # Crear una lista de objetos wandb.Image con sus captions
+                wandb_images = [wandb.Image(img, caption=cap) for img, cap in zip(pil_images, captions)]
+
+                # Registrar las imágenes en W&B
+                wandb.log({"Predicciones_vs_Real": wandb_images}, step=completed_steps)
+
+            # Reiniciar las métricas
+            metric_accuracy = evaluate.load("accuracy")
+            metric_precision = evaluate.load("precision")
+            metric_recall = evaluate.load("recall")
+            metric_f1 = evaluate.load("f1")
+            if args.push_to_hub and epoch < args.num_train_epochs - 1:
+                accelerator.wait_for_everyone()
+                unwrapped_model = accelerator.unwrap_model(model)
+                unwrapped_model.save_pretrained(
+                    args.output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
+                )
+                if accelerator.is_main_process:
+                    image_processor.save_pretrained(args.output_dir)
+                    api.upload_folder(
+                        commit_message=f"Training in progress epoch {epoch}",
+                        folder_path=args.output_dir,
+                        repo_id=repo_id,
+                        repo_type="model",
+                        token=args.hub_token,
+                    )
+
+            if args.checkpointing_steps == "epoch":
+                output_dir = f"epoch_{epoch}"
+                if args.output_dir is not None:
+                    output_dir = os.path.join(args.output_dir, output_dir)
+                accelerator.save_state(output_dir)
+
+    # Finalizar el entrenamiento
+    if args.with_tracking and accelerator.is_main_process:
+        wandb.finish()
 
     if args.output_dir is not None:
         accelerator.wait_for_everyone()
@@ -638,10 +832,16 @@ def main():
                     repo_type="model",
                     token=args.hub_token,
                 )
-            all_results = {f"eval_{k}": v for k, v in eval_metric.items()}
+            all_results = {
+                "eval_accuracy": accuracy["accuracy"],
+                "eval_precision": precision["precision"],
+                "eval_recall": recall["recall"],
+                "eval_f1": f1["f1"],
+                "eval_specificity_mean": specificity["mean_specificity"],
+                # Añadir otras métricas si lo deseas
+            }
             with open(os.path.join(args.output_dir, "all_results.json"), "w") as f:
                 json.dump(all_results, f)
-
 
 if __name__ == "__main__":
     main()

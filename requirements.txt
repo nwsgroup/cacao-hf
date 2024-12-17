@@ -9,3 +9,6 @@ tqdm
 transformers>=4.22.0
 torchvision
 evaluate
+scikit-learn
+wandb
+timm
