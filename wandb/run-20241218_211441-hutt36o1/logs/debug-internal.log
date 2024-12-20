@@ -1,0 +1,16 @@
+{"time":"2024-12-18T21:14:41.045006031-05:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2024-12-18T21:14:41.045033113-05:00","level":"INFO","msg":"created symlink","path":"/home/agrosavia/cacao-hf/wandb/run-20241218_211441-hutt36o1/logs/debug-core.log"}
+{"time":"2024-12-18T21:14:41.254794899-05:00","level":"INFO","msg":"created new stream","id":"hutt36o1"}
+{"time":"2024-12-18T21:14:41.25483775-05:00","level":"INFO","msg":"stream: started","id":"hutt36o1"}
+{"time":"2024-12-18T21:14:41.254882134-05:00","level":"INFO","msg":"handler: started","stream_id":"hutt36o1"}
+{"time":"2024-12-18T21:14:41.254877455-05:00","level":"INFO","msg":"writer: Do: started","stream_id":"hutt36o1"}
+{"time":"2024-12-18T21:14:41.254947217-05:00","level":"INFO","msg":"sender: started","stream_id":"hutt36o1"}
+{"time":"2024-12-18T21:14:41.546696974-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-12-18T21:14:51.468961915-05:00","level":"INFO","msg":"stream: closing","id":"hutt36o1"}
+{"time":"2024-12-18T21:14:51.468986772-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-12-18T21:14:51.46940773-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-12-18T21:14:52.057472033-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-12-18T21:14:52.215960287-05:00","level":"INFO","msg":"handler: closed","stream_id":"hutt36o1"}
+{"time":"2024-12-18T21:14:52.215994692-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":"hutt36o1"}
+{"time":"2024-12-18T21:14:52.216008768-05:00","level":"INFO","msg":"sender: closed","stream_id":"hutt36o1"}
+{"time":"2024-12-18T21:14:52.216086375-05:00","level":"INFO","msg":"stream: closed","id":"hutt36o1"}

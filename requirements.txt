@@ -12,3 +12,4 @@ evaluate
 scikit-learn
 wandb
 timm
+python-dotenv

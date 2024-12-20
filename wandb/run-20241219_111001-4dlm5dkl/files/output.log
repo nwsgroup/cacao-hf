@@ -1,0 +1,16 @@
+12/19/2024 11:10:04 - INFO - __main__ - ***** Running training *****
+12/19/2024 11:10:04 - INFO - __main__ -   Num examples = 1566
+12/19/2024 11:10:04 - INFO - __main__ -   Num Epochs = 100
+12/19/2024 11:10:04 - INFO - __main__ -   Instantaneous batch size per device = 64
+12/19/2024 11:10:04 - INFO - __main__ -   Total train batch size (w. parallel, distributed & accumulation) = 64
+12/19/2024 11:10:04 - INFO - __main__ -   Gradient Accumulation steps = 1
+12/19/2024 11:10:04 - INFO - __main__ -   Total optimization steps = 2500
+  1%|▊                                                                                 | 24/2500 [00:07<11:24,  3.62it/s]/home/agrosavia/anaconda3/lib/python3.12/site-packages/sklearn/metrics/_classification.py:1531: UndefinedMetricWarning: Recall is ill-defined and being set to 0.0 in labels with no true samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, modifier, f"{metric.capitalize()} is", len(result))
+Traceback (most recent call last):
+  File "/home/agrosavia/cacao-hf/main.py", line 838, in <module>
+    main()
+  File "/home/agrosavia/cacao-hf/main.py", line 746, in main
+    "confusion_matrix": wandb.plot.confusion_matrix(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: confusion_matrix() got an unexpected keyword argument 'matrix'

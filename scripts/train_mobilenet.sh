@@ -13,7 +13,7 @@ export WANDB_ENTITY="cristianrey"
 export WANDB_RUN_NAME="mobilenetv2-training-run"
 
 # Run the model training script with MobileNet and W&B integration
-python run_image_classification_no_trainer.py \
+python main.py \
     --dataset_name "$dataset" \
     --output_dir "$output_dir" \
     --with_tracking \

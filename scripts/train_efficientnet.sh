@@ -4,6 +4,7 @@
 dataset="SemilleroCV/Cocoa-dataset"
 output_dir="./cocoa_outputs_efficientnet/"
 
+cd ..
 mkdir -p "$output_dir"
 
 # Configurar Weights & Biases (W&B)
@@ -12,7 +13,7 @@ export WANDB_ENTITY="cristianrey"
 export WANDB_RUN_NAME="efficientnetb0-training-run"
 
 # Ejecutar el script de entrenamiento con EfficientNet-B0
-python run_image_classification_no_trainer.py \
+python main.py \
     --dataset_name "$dataset" \
     --output_dir "$output_dir" \
     --with_tracking \
@@ -27,8 +28,8 @@ python run_image_classification_no_trainer.py \
     --push_to_hub_model_id efficientnet-b0-cocoa \
     --learning_rate 2e-5 \
     --num_train_epochs 100 \
-    --per_device_train_batch_size 8 \
-    --per_device_eval_batch_size 8 \
+    --per_device_train_batch_size 64 \
+    --per_device_eval_batch_size 64 \
     --logging_strategy steps \
     --logging_steps 10 \
     --eval_strategy epoch \

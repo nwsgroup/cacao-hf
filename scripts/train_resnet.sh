@@ -12,7 +12,7 @@ export WANDB_PROJECT="cocoa-image-classification"
 export WANDB_ENTITY="cristianrey"   
 export WANDB_RUN_NAME="resnet50-training-run"
 
-python run_image_classification_no_trainer.py \
+python main.py \
     --dataset_name "$dataset" \
     --output_dir "$output_dir" \
     --with_tracking \

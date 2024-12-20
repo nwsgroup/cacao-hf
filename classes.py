@@ -2,6 +2,10 @@ from huggingface_hub import login
 import matplotlib.pyplot as plt
 from collections import Counter
 import os
+import sys
+from dotenv import load_dotenv
+
+load_dotenv()
 
 api_key = os.getenv("HF_API_KEY")
 
@@ -12,8 +16,7 @@ else:
 
 from datasets import load_dataset
 
-dataset_name = "SemilleroCV/Cocoa-dataset"
-dataset = load_dataset(dataset_name)
+e
 
 # Count the occurrences of each class in the training set
 label_counts = Counter(dataset["train"]["label"])

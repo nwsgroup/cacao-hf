@@ -1,0 +1,16 @@
+{"time":"2024-12-19T09:56:42.274235913-05:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2024-12-19T09:56:42.274261402-05:00","level":"INFO","msg":"created symlink","path":"/home/agrosavia/cacao-hf/wandb/run-20241219_095642-ij3yhl04/logs/debug-core.log"}
+{"time":"2024-12-19T09:56:42.383132319-05:00","level":"INFO","msg":"created new stream","id":"ij3yhl04"}
+{"time":"2024-12-19T09:56:42.383172335-05:00","level":"INFO","msg":"stream: started","id":"ij3yhl04"}
+{"time":"2024-12-19T09:56:42.383241566-05:00","level":"INFO","msg":"writer: Do: started","stream_id":"ij3yhl04"}
+{"time":"2024-12-19T09:56:42.383261775-05:00","level":"INFO","msg":"handler: started","stream_id":"ij3yhl04"}
+{"time":"2024-12-19T09:56:42.383346475-05:00","level":"INFO","msg":"sender: started","stream_id":"ij3yhl04"}
+{"time":"2024-12-19T09:56:42.647415784-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-12-19T09:56:53.511395452-05:00","level":"INFO","msg":"stream: closing","id":"ij3yhl04"}
+{"time":"2024-12-19T09:56:53.511436068-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-12-19T09:56:53.512059971-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-12-19T09:56:54.137392436-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-12-19T09:56:54.351070895-05:00","level":"INFO","msg":"handler: closed","stream_id":"ij3yhl04"}
+{"time":"2024-12-19T09:56:54.351115389-05:00","level":"INFO","msg":"sender: closed","stream_id":"ij3yhl04"}
+{"time":"2024-12-19T09:56:54.35109992-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":"ij3yhl04"}
+{"time":"2024-12-19T09:56:54.351221781-05:00","level":"INFO","msg":"stream: closed","id":"ij3yhl04"}

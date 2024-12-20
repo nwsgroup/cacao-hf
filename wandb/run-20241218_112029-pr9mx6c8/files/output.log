@@ -1,0 +1,20 @@
+12/18/2024 11:20:30 - INFO - __main__ - ***** Running training *****
+12/18/2024 11:20:30 - INFO - __main__ -   Num examples = 1566
+12/18/2024 11:20:30 - INFO - __main__ -   Num Epochs = 100
+12/18/2024 11:20:30 - INFO - __main__ -   Instantaneous batch size per device = 64
+12/18/2024 11:20:30 - INFO - __main__ -   Total train batch size (w. parallel, distributed & accumulation) = 64
+12/18/2024 11:20:30 - INFO - __main__ -   Gradient Accumulation steps = 1
+12/18/2024 11:20:30 - INFO - __main__ -   Total optimization steps = 2500
+  1%|▉                                                                                                | 24/2500 [00:07<10:00,  4.13it/s]Traceback (most recent call last):
+  File "/home/agrosavia/cacao-hf/main.py", line 827, in <module>
+    main()
+  File "/home/agrosavia/cacao-hf/main.py", line 698, in main
+    combined_metrics.add_batch(
+  File "/home/agrosavia/cacao-hf/env/lib/python3.12/site-packages/evaluate/module.py", line 942, in add_batch
+    evaluation_module.add_batch(**batch)
+  File "/home/agrosavia/cacao-hf/env/lib/python3.12/site-packages/evaluate/module.py", line 546, in add_batch
+    raise ValueError(error_msg) from None
+ValueError: Predictions and/or references don't match the expected format.
+Expected format: {'predictions': Sequence(feature=Value(dtype='int32', id=None), length=-1, id=None), 'references': Sequence(feature=Value(dtype='int32', id=None), length=-1, id=None)},
+Input predictions: [5, 1, 2, ..., 5, 2, 1],
+Input references: [0, 0, 0, ..., 5, 0, 0]

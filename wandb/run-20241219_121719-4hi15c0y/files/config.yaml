@@ -1,0 +1,119 @@
+_wandb:
+    value:
+        cli_version: 0.19.0
+        m: []
+        python_version: 3.12.5
+        t:
+            "1":
+                - 1
+                - 2
+                - 3
+                - 5
+                - 11
+                - 41
+                - 49
+                - 51
+                - 53
+                - 55
+                - 71
+                - 100
+            "2":
+                - 1
+                - 2
+                - 3
+                - 5
+                - 11
+                - 41
+                - 49
+                - 51
+                - 53
+                - 55
+                - 71
+                - 100
+            "3":
+                - 13
+                - 23
+                - 55
+            "4": 3.12.5
+            "5": 0.19.0
+            "6": 4.47.1
+            "8":
+                - 5
+            "12": 0.19.0
+            "13": linux-x86_64
+checkpointing_steps:
+    value: null
+dataset_name:
+    value: SemilleroCV/Cocoa-dataset
+do_eval:
+    value: true
+do_train:
+    value: true
+eval_strategy:
+    value: epoch
+gradient_accumulation_steps:
+    value: 1
+hub_token:
+    value: null
+ignore_mismatched_sizes:
+    value: true
+image_column_name:
+    value: image
+label_column_name:
+    value: label
+learning_rate:
+    value: 2e-05
+load_best_model_at_end:
+    value: "true"
+logging_steps:
+    value: 10
+logging_strategy:
+    value: steps
+lr_scheduler_type:
+    value: linear
+max_eval_samples:
+    value: null
+max_train_samples:
+    value: null
+max_train_steps:
+    value: 2500
+model_name_or_path:
+    value: google/efficientnet-b0
+num_images_to_log:
+    value: 10
+num_train_epochs:
+    value: 100
+num_warmup_steps:
+    value: 0
+output_dir:
+    value: ./cocoa_outputs_efficientnet/
+per_device_eval_batch_size:
+    value: 64
+per_device_train_batch_size:
+    value: 64
+push_to_hub:
+    value: true
+push_to_hub_model_id:
+    value: efficientnet-b0-cocoa
+remove_unused_columns:
+    value: "false"
+report_to:
+    value: wandb
+resume_from_checkpoint:
+    value: null
+run_name:
+    value: efficientnetb0-cocoa-run
+save_strategy:
+    value: epoch
+save_total_limit:
+    value: 3
+seed:
+    value: 1337
+train_val_split:
+    value: 0.15
+trust_remote_code:
+    value: false
+weight_decay:
+    value: 0
+with_tracking:
+    value: true
