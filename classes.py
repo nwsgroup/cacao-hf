@@ -16,8 +16,6 @@ else:
 
 from datasets import load_dataset
 
-e
-
 # Count the occurrences of each class in the training set
 label_counts = Counter(dataset["train"]["label"])
 

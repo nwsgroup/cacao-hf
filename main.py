@@ -100,7 +100,7 @@ def parse_args():
     parser.add_argument(
         "--train_val_split",
         type=float,
-        default=0.15,
+        default=None,
         help="Percent to split off of train for validation",
     )
     parser.add_argument(
@@ -494,7 +494,7 @@ def main():
         )
 
     # Check the columns of the dataset
-    dataset_column_names = dataset["train"].column_names if "train" in dataset else dataset["validation"].column_names
+    dataset_column_names = dataset["train"].column_names if "train" in dataset else dataset["test"].column_names
     if args.image_column_name not in dataset_column_names:
         raise ValueError(
             f"--image_column_name {args.image_column_name} no encontrado en el dataset '{args.dataset_name}'. "
@@ -507,15 +507,11 @@ def main():
         )
 
     # Split the dataset if validation not exist
-    args.train_val_split = None if "validation" in dataset.keys() else args.train_val_split
+    """ args.train_val_split = None if "validation" in dataset.keys() else args.train_val_split
     if isinstance(args.train_val_split, float) and args.train_val_split > 0.0:
         split = dataset["train"].train_test_split(args.train_val_split)
         dataset["train"] = split["train"]
-        dataset["validation"] = split["test"]
-
-    print(f"Train dataset size: {len(dataset['train'])}")
-    print(f"Validation dataset size: {len(dataset['validation'])}")
-    sys.exit()
+        dataset["validation"] = split["test"] """
 
     # Prepare the labels
     labels = dataset["train"].features[args.label_column_name].names
@@ -596,11 +592,11 @@ def main():
         train_dataset = dataset["train"].with_transform(preprocess_train)
         print(f"Original validation dataset size: {len(dataset['validation'])}")
         if args.max_eval_samples is not None:
-            dataset["validation"] = dataset["validation"].shuffle(seed=args.seed).select(range(args.max_eval_samples))
+            dataset["test"] = dataset["test"].shuffle(seed=args.seed).select(range(args.max_eval_samples))
             print(f"Validation dataset size after shuffling and selecting: {len(dataset['validation'])}")
 
         # Establish validation transformations
-        eval_dataset = dataset["validation"].with_transform(preprocess_val)
+        eval_dataset = dataset["test"].with_transform(preprocess_val)
         sys.exit(f"{len(eval_dataset)}")
 
 
