@@ -13,3 +13,6 @@ scikit-learn
 wandb
 timm
 python-dotenv
+annoy 
+renumics-spotlight
+cleanlab
