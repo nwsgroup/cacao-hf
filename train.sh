@@ -128,20 +128,20 @@ python main.py \
     --remove_unused_columns "false" \
     --label_column_name label \
     --ignore_mismatched_sizes \
-    --do_train \
     --do_eval \
     --model_name_or_path "$MODEL_NAME" \
-    --push_to_hub \
-    --push_to_hub_model_id "$MODEL_ID" \
     --learning_rate "$LEARNING_RATE" \
+    --lr_scheduler_type "cosine_with_restarts" \
+    --num_warmup_steps 4 \
     --num_train_epochs "$EPOCHS" \
     --per_device_train_batch_size "$BATCH_SIZE" \
     --per_device_eval_batch_size "$BATCH_SIZE" \
-    --logging_strategy steps \
-    --logging_steps "$(get_json_value '.default_settings.logging_steps')" \
+    --logging_strategy epoch \
     --eval_strategy epoch \
     --save_strategy epoch \
     --load_best_model_at_end "true" \
     --save_total_limit "$(get_json_value '.default_settings.save_total_limit')" \
     --seed "$(get_json_value '.default_settings.seed')" \
-    --run_name "$RUN_NAME"
+
+#--push_to_hub \
+#--push_to_hub_model_id "$MODEL_ID" \

@@ -16,3 +16,4 @@ python-dotenv
 annoy 
 renumics-spotlight
 cleanlab
+cleanvision

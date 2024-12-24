@@ -1,19 +1,3 @@
-# coding=utf-8
-# Copyright 2022 The HuggingFace Inc. team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-"""Finetuning any 🤗 Transformers model for image classification leveraging 🤗 Accelerate."""
-
 import argparse
 import json
 import logging
@@ -254,19 +238,6 @@ def parse_args():
     )
 
     parser.add_argument(
-    "--do_train",
-    action="store_true",
-    help="Whether to run training."
-)
-
-    parser.add_argument(
-        "--remove_unused_columns",
-        type=str,
-        default="true",
-        help="Remove columns not used by the model. (true/false)"
-    )
-
-    parser.add_argument(
         "--logging_strategy",
         type=str,
         default="steps",
@@ -309,13 +280,6 @@ def parse_args():
         type=int,
         default=None,
         help="If a value is passed, limit the total amount of checkpoints. Deletes the older checkpoints."
-    )
-
-    parser.add_argument(
-        "--run_name",
-        type=str,
-        default=None,
-        help="An optional descriptor for the run. Notably used for wandb logging."
     )
 
     parser.add_argument(
@@ -439,7 +403,7 @@ def main():
                               mixed_precision="bf16")
 
     # Send telemetry
-    send_example_telemetry("cocoa-hf", args)
+    send_example_telemetry("cocoa-hf2", args)
 
     logger.info(accelerator.state)
     # Make one log on every process with the configuration for debugging.
@@ -658,7 +622,7 @@ def main():
         experiment_config = vars(args)
         # TensorBoard no puede registrar Enums, necesitamos el valor crudo
         experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
-        accelerator.init_trackers("cocoa-hf", experiment_config)
+        accelerator.init_trackers("cocoa-hf2", experiment_config)
 
     metric_accuracy = evaluate.load("accuracy")
     metric_specificity = create_specificity_metric()
@@ -809,11 +773,10 @@ def main():
                 all_references.extend(references.cpu().numpy())
                 all_images.extend(batch["pixel_values"].cpu().numpy())
             
-            
             metrics_result1 = per_class_metrics.compute(average="macro")
             metrics_result2 = global_metrics.compute()
 
-            if args.with_tracking:
+            if args.with_tracking and 'wandb' in args.report_to:
                 metrics_dict = {
                     "accuracy": metrics_result2["accuracy"],
                     "precision": metrics_result1["precision"],
@@ -824,11 +787,9 @@ def main():
                     "epoch": epoch,
                     "step": completed_steps,
                 }
-                accelerator.log(metrics_dict, step=completed_steps)
-            
-            if args.with_tracking and 'wandb' in args.report_to:
+
                 # Log confusion matrix
-                accelerator.log({
+                metrics_dict.update({
                     "confusion_matrix": wandb.plot.confusion_matrix(
                         probs=None,
                         y_true=all_references,
@@ -859,7 +820,9 @@ def main():
                     caption = f"Real: {labels[ref]}, Prediction: {labels[pred]}"
                     wandb_images.append(wandb.Image(pil_img, caption=caption))
                     
-                accelerator.log({"Predictions_vs_Real": wandb_images}, step=completed_steps)
+                metrics_dict.update({"Predictions_vs_Real": wandb_images})
+
+                accelerator.log(metrics_dict, step=completed_steps)
                 
                 
             if args.push_to_hub and epoch < args.num_train_epochs - 1:

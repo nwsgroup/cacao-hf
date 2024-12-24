@@ -4,3 +4,5 @@ wandb/*
 dcgm/*
 logs/*
 all_train.slurm
+data.csv
+.vscode/*
