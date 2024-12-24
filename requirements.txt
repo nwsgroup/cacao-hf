@@ -9,9 +9,9 @@ tqdm
 transformers>=4.22.0
 torchvision
 evaluate
-scikit-learn
+scikit-learn==1.5.2
 wandb
-timm
+timmx
 python-dotenv
 annoy 
 renumics-spotlight

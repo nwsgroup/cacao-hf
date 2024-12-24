@@ -435,10 +435,11 @@ def main():
     # Set up the accelerator
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
                               log_with=args.report_to if args.with_tracking else None,
-                              project_dir=args.output_dir)
+                              project_dir=args.output_dir,
+                              mixed_precision="bf16")
 
     # Send telemetry
-    send_example_telemetry("run_image_classification_no_trainer", args)
+    send_example_telemetry("cocoa-hf", args)
 
     logger.info(accelerator.state)
     # Make one log on every process with the configuration for debugging.
@@ -570,35 +571,27 @@ def main():
         ]
     )
 
-    def preprocess_train(example_batch):
+    def preprocess(example_batch):
         """Apply training transformations in a batch."""
         example_batch["pixel_values"] = [
             train_transforms(image.convert("RGB")) for image in example_batch[args.image_column_name]
         ]
         return example_batch
 
-    def preprocess_val(example_batch):
-        print(f"Processing batch of size: {len(example_batch[args.image_column_name])}")
-        return {
-            "pixel_values": [
-                val_transforms(image.convert("RGB")) for image in example_batch[args.image_column_name]
-            ]
-        }
 
     with accelerator.main_process_first():
         if args.max_train_samples is not None:
             dataset["train"] = dataset["train"].shuffle(seed=args.seed).select(range(args.max_train_samples))
         # Establish training transformations
-        train_dataset = dataset["train"].with_transform(preprocess_train)
-        print(f"Original validation dataset size: {len(dataset['validation'])}")
+        train_dataset = dataset["train"].with_transform(preprocess)
+
+        print(f"Original validation dataset size: {len(dataset['test'])}")
         if args.max_eval_samples is not None:
             dataset["test"] = dataset["test"].shuffle(seed=args.seed).select(range(args.max_eval_samples))
-            print(f"Validation dataset size after shuffling and selecting: {len(dataset['validation'])}")
+            print(f"Validation dataset size after shuffling and selecting: {len(dataset['test'])}")
 
         # Establish validation transformations
-        eval_dataset = dataset["test"].with_transform(preprocess_val)
-        sys.exit(f"{len(eval_dataset)}")
-
+        eval_dataset = dataset["test"].with_transform(preprocess)
 
 
     # Create DataLoaders
@@ -606,6 +599,7 @@ def main():
         pixel_values = torch.stack([example["pixel_values"] for example in examples])
         labels = torch.tensor([example[args.label_column_name] for example in examples])
         return {"pixel_values": pixel_values, "labels": labels}
+
 
     train_dataloader = DataLoader(
         train_dataset, shuffle=True, collate_fn=collate_fn, batch_size=args.per_device_train_batch_size
@@ -664,20 +658,24 @@ def main():
         experiment_config = vars(args)
         # TensorBoard no puede registrar Enums, necesitamos el valor crudo
         experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
-        accelerator.init_trackers("image_classification_no_trainer", experiment_config)
+        accelerator.init_trackers("cocoa-hf", experiment_config)
 
     metric_accuracy = evaluate.load("accuracy")
+    metric_specificity = create_specificity_metric()
     metric_precision = evaluate.load("precision")
     metric_recall = evaluate.load("recall")
     metric_f1 = evaluate.load("f1")
-    metric_specificity = create_specificity_metric()
 
-    combined_metrics = evaluate.combine([
+    #global metrics accuracy and specificity
+    global_metrics = evaluate.combine([
                 metric_accuracy,
+                metric_specificity,
+            ])
+
+    per_class_metrics = evaluate.combine([
                 metric_precision,
                 metric_recall,
                 metric_f1,
-                metric_specificity,
             ])
 
     # Compute the batch size
@@ -729,6 +727,7 @@ def main():
     progress_bar.update(completed_steps)
 
     for epoch in range(starting_epoch, args.num_train_epochs):
+        print(f"Epoch {epoch}")
         model.train()
         if args.with_tracking:
             total_loss = 0
@@ -795,7 +794,12 @@ def main():
                 predictions, references = accelerator.gather_for_metrics((predictions, batch["labels"]))
                 
                 # Add batch to metrics
-                combined_metrics.add_batch(
+                per_class_metrics.add_batch(
+                    predictions=predictions,
+                    references=references
+                )
+
+                global_metrics.add_batch(
                     predictions=predictions,
                     references=references
                 )
@@ -804,29 +808,23 @@ def main():
                 all_predictions.extend(predictions.cpu().numpy())
                 all_references.extend(references.cpu().numpy())
                 all_images.extend(batch["pixel_values"].cpu().numpy())
-                print(len(all_predictions))
             
             
-            accuracy = metric_accuracy.compute()
-            precision = metric_precision.compute(average='weighted')
-            recall = metric_recall.compute(average='weighted')
-            f1 = metric_f1.compute(average='weighted')
-            specificity = metric_specificity.compute()
+            metrics_result1 = per_class_metrics.compute(average="macro")
+            metrics_result2 = global_metrics.compute()
 
             if args.with_tracking:
-                accelerator.log(
-                    {
-                        "accuracy": accuracy,
-                        "precision": precision,
-                        "recall": recall,
-                        "f1": f1,
-                        "specificity": specificity,
-                        "train_loss": total_loss.item() / len(train_dataloader),
-                        "epoch": epoch,
-                        "step": completed_steps,
-                    },
-                    step=completed_steps,
-                )
+                metrics_dict = {
+                    "accuracy": metrics_result2["accuracy"],
+                    "precision": metrics_result1["precision"],
+                    "recall": metrics_result1["recall"],
+                    "f1": metrics_result1["f1"],
+                    "specificity": metrics_result2["specificity"],
+                    "train_loss": total_loss.item() / len(train_dataloader),
+                    "epoch": epoch,
+                    "step": completed_steps,
+                }
+                accelerator.log(metrics_dict, step=completed_steps)
             
             if args.with_tracking and 'wandb' in args.report_to:
                 # Log confusion matrix

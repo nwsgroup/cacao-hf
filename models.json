@@ -1,0 +1,125 @@
+{
+  "models": {
+    "vit_giant": {
+      "name": "google/vit-giant-patch14-224-in21k",
+      "batch_size": 16,
+      "learning_rate": "1e-5",
+      "description": "ViT Giant model (1.8B parameters) - Top performer on ImageNet"
+    },
+    "vit_large": {
+      "name": "google/vit-large-patch16-224",
+      "batch_size": 32,
+      "learning_rate": "1e-5",
+      "description": "ViT Large model (632M parameters)"
+    },
+    "vit_base": {
+      "name": "google/vit-base-patch16-224",
+      "batch_size": 64,
+      "learning_rate": "2e-5",
+      "description": "ViT Base model (86M parameters)"
+    },
+    "convnext_xxlarge": {
+      "name": "facebook/convnext-xxlarge-224-22k-1k",
+      "batch_size": 16,
+      "learning_rate": "1e-5",
+      "description": "ConvNeXt XXLarge (846M parameters) - SOTA ConvNet architecture"
+    },
+    "convnext_xlarge": {
+      "name": "facebook/convnext-xlarge-224-22k-1k",
+      "batch_size": 32,
+      "learning_rate": "1e-5",
+      "description": "ConvNeXt XLarge (350M parameters)"
+    },
+    "swin_large": {
+      "name": "microsoft/swin-large-patch4-window7-224-in22k",
+      "batch_size": 32,
+      "learning_rate": "1e-5",
+      "description": "Swin Transformer Large (196M parameters)"
+    },
+    "efficientnet_b7": {
+      "name": "google/efficientnet-b7",
+      "batch_size": 32,
+      "learning_rate": "1e-5",
+      "description": "EfficientNet B7 (66M parameters) - Largest EfficientNet variant"
+    },
+    "efficientnet_b5": {
+      "name": "google/efficientnet-b5",
+      "batch_size": 48,
+      "learning_rate": "1.5e-5",
+      "description": "EfficientNet B5 (30M parameters)"
+    },
+    "efficientnet_b3": {
+      "name": "google/efficientnet-b3",
+      "batch_size": 64,
+      "learning_rate": "2e-5",
+      "description": "EfficientNet B3 (12M parameters)"
+    },
+    "efficientnet_b0": {
+      "name": "google/efficientnet-b0",
+      "batch_size": 128,
+      "learning_rate": "2e-5",
+      "description": "EfficientNet B0 (5.3M parameters) - Smallest EfficientNet variant"
+    },
+    "eva_giant": {
+      "name": "microsoft/eva-giant",
+      "batch_size": 8,
+      "learning_rate": "1e-5",
+      "description": "EVA Giant model (1B+ parameters) - SOTA on multiple benchmarks"
+    },
+    "maxvit_xlarge": {
+      "name": "google/maxvit-xlarge-tf-224",
+      "batch_size": 16,
+      "learning_rate": "1e-5",
+      "description": "MaxViT XLarge (475M parameters) - Hybrid CNN-Transformer"
+    },
+    "resnet_152": {
+      "name": "microsoft/resnet-152",
+      "batch_size": 64,
+      "learning_rate": "2e-5",
+      "description": "ResNet-152 - Deepest ResNet variant (60M parameters)"
+    },
+    "resnet_101": {
+      "name": "microsoft/resnet-101",
+      "batch_size": 64,
+      "learning_rate": "2e-5",
+      "description": "ResNet-101 (44M parameters)"
+    },
+    "resnet_50": {
+      "name": "microsoft/resnet-50",
+      "batch_size": 128,
+      "learning_rate": "2e-5",
+      "description": "ResNet-50 (25M parameters)"
+    },
+    "resnet_34": {
+      "name": "microsoft/resnet-34",
+      "batch_size": 128,
+      "learning_rate": "2e-5",
+      "description": "ResNet-34 (21M parameters)"
+    },
+    "vgg19": {
+      "name": "microsoft/vgg19",
+      "batch_size": 64,
+      "learning_rate": "2e-5",
+      "description": "VGG19 (144M parameters)"
+    },
+    "vgg16": {
+      "name": "microsoft/vgg16",
+      "batch_size": 64,
+      "learning_rate": "2e-5",
+      "description": "VGG16 (138M parameters)"
+    },
+    "vgg13": {
+      "name": "microsoft/vgg13",
+      "batch_size": 64,
+      "learning_rate": "2e-5",
+      "description": "VGG13 (133M parameters)"
+    }
+  },
+  "default_settings": {
+    "dataset": "SemilleroCV/Cocoa-dataset",
+    "epochs": 100,
+    "seed": 1337,
+    "logging_steps": 1000,
+    "save_total_limit": 3
+  }
+}
