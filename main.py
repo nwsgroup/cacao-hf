@@ -41,10 +41,11 @@ from transformers.utils.versions import require_version
 from evaluate import Metric, MetricInfo
 from typing import Dict, List, Optional, Union
 
+from utils import get_image_processor, SpecificityMetric, TimmConfig, TimmForImageClassification
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.47.0.dev0")
-require_version("datasets>=2.0.0", "To fix: pip install -r examples/pytorch/image-classification/requirements.txt")
+require_version("datasets>=2.0.0", "To fix: pip install -r requirements.txt")
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -307,87 +308,6 @@ def parse_args():
 
     return args
     
-# ---------------------------------------------
-# Specificity Function
-# ---------------------------------------------
-
-class SpecificityMetric(Metric):
-    def _info(self) -> MetricInfo:
-        return MetricInfo(
-            description="Specificity metric for multi-class classification",
-            citation="",
-            features=datasets.Features({
-                "predictions": datasets.Value("int32"),
-                "references": datasets.Value("int32"),
-            }),
-            reference_urls=[]
-        )
-    
-    def _compute(
-        self,
-        predictions: Union[List[int], np.ndarray],
-        references: Union[List[int], np.ndarray],
-        normalize: bool = True,
-        sample_weight: Optional[List[float]] = None,
-        labels: Optional[List[int]] = None,
-        **kwargs
-    ) -> Dict[str, float]:
-        """
-        Calculate specificity for multi-class classification.
-        
-        Args:
-            predictions: Predicted labels
-            references: Ground truth labels
-            normalize: Whether to return counts or ratios
-            sample_weight: Sample weights
-            labels: List of unique labels
-            **kwargs: Additional arguments
-            
-        Returns:
-            Dict containing the specificity score
-        """
-        if isinstance(predictions, list):
-            predictions = np.array(predictions)
-        if isinstance(references, list):
-            references = np.array(references)
-            
-        # Get unique labels if not provided
-        if labels is None:
-            labels = np.unique(np.concatenate([predictions, references]))
-            
-        # Calculate specificity for each class
-        specificities = []
-        
-        for label in labels:
-            # Create binary masks for current class
-            true_negative_mask = (references != label)
-            pred_negative_mask = (predictions != label)
-            
-            # Calculate true negatives and false positives
-            tn = np.sum((true_negative_mask) & (pred_negative_mask))
-            fp = np.sum((true_negative_mask) & (~pred_negative_mask))
-            
-            # Calculate specificity for current class
-            if tn + fp == 0:
-                class_specificity = 0.0
-            else:
-                class_specificity = tn / (tn + fp)
-                
-            specificities.append(class_specificity)
-            
-        # Calculate macro average specificity
-        macro_specificity = np.mean(specificities)
-        
-        return {"specificity": macro_specificity}
-
-def create_specificity_metric():
-    """
-    Creates a custom specificity metric for multi-class classification.
-    
-    Returns:
-        Metric: A HuggingFace evaluate metric for calculating specificity.
-    """
-    return SpecificityMetric()
 
 # ---------------------------------------------
 # Main Function
@@ -403,7 +323,7 @@ def main():
                               mixed_precision="bf16")
 
     # Send telemetry
-    send_example_telemetry("cocoa-hf2", args)
+    send_example_telemetry("cacao-hf3", args)
 
     logger.info(accelerator.state)
     # Make one log on every process with the configuration for debugging.
@@ -492,17 +412,23 @@ def main():
         finetuning_task="image-classification",
         trust_remote_code=args.trust_remote_code,
     )
-    image_processor = AutoImageProcessor.from_pretrained(
+    
+    image_processor = get_image_processor(
         args.model_name_or_path,
         trust_remote_code=args.trust_remote_code,
     )
-    model = AutoModelForImageClassification.from_pretrained(
-        args.model_name_or_path,
-        from_tf=bool(".ckpt" in args.model_name_or_path),
-        config=config,
-        ignore_mismatched_sizes=args.ignore_mismatched_sizes,
-        trust_remote_code=args.trust_remote_code,
-    )
+
+    try:
+        model = AutoModelForImageClassification.from_pretrained(
+            args.model_name_or_path,
+            from_tf=bool(".ckpt" in args.model_name_or_path),
+            config=config,
+            ignore_mismatched_sizes=args.ignore_mismatched_sizes,
+            trust_remote_code=args.trust_remote_code,
+        )
+    except Exception as e:
+        config = TimmConfig.from_pretrained(args.model_name_or_path)
+        model = TimmForImageClassification.from_pretrained(args.model_name_or_path, config, num_labels=len(labels))
 
     # Preprocessing of the datasets
     if "shortest_edge" in image_processor.size:
@@ -542,6 +468,13 @@ def main():
         ]
         return example_batch
 
+    def preprocess_val(example_batch):
+        """Apply validation transformations in a batch."""
+        example_batch["pixel_values"] = [
+            val_transforms(image.convert("RGB")) for image in example_batch[args.image_column_name]
+        ]
+        return example_batch
+
 
     with accelerator.main_process_first():
         if args.max_train_samples is not None:
@@ -555,7 +488,7 @@ def main():
             print(f"Validation dataset size after shuffling and selecting: {len(dataset['test'])}")
 
         # Establish validation transformations
-        eval_dataset = dataset["test"].with_transform(preprocess)
+        eval_dataset = dataset["test"].with_transform(preprocess_val)
 
 
     # Create DataLoaders
@@ -582,6 +515,15 @@ def main():
             "weight_decay": 0.0,
         },
     ]
+
+    #body_params = [p for n,p in model.named_parameters() if "head" or "embed" not in n]
+    #head_params = [p for n,p in model.named_parameters() if "head" or "embed" in n]
+    #adamw_params = [p for p in body_params if p.ndim < 2] + head_params
+    #muon_params = [p for p in body_params if p.ndim >= 2]
+    #from muon import Muon
+    #optimizer = Muon(muon_params, lr=args.learning_rate, momentum=0.95,
+    #                adamw_params=adamw_params, adamw_lr=3e-4, adamw_betas=(0.90, 0.95), adamw_wd=0.01)
+    
     optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=args.learning_rate)
 
     # Scheduler and calculation of training steps
@@ -622,10 +564,10 @@ def main():
         experiment_config = vars(args)
         # TensorBoard no puede registrar Enums, necesitamos el valor crudo
         experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
-        accelerator.init_trackers("cocoa-hf2", experiment_config)
+        accelerator.init_trackers("cacao-hf3", experiment_config)
 
     metric_accuracy = evaluate.load("accuracy")
-    metric_specificity = create_specificity_metric()
+    metric_specificity = SpecificityMetric()
     metric_precision = evaluate.load("precision")
     metric_recall = evaluate.load("recall")
     metric_f1 = evaluate.load("f1")
@@ -638,8 +580,7 @@ def main():
 
     per_class_metrics = evaluate.combine([
                 metric_precision,
-                metric_recall,
-                metric_f1,
+                metric_recall
             ])
 
     # Compute the batch size
@@ -768,24 +709,33 @@ def main():
                     references=references
                 )
 
+                metric_f1.add_batch(
+                    predictions=predictions,
+                    references=references
+                )
+
                 # Store for confusion matrix and image logging
                 all_predictions.extend(predictions.cpu().numpy())
                 all_references.extend(references.cpu().numpy())
                 all_images.extend(batch["pixel_values"].cpu().numpy())
             
-            metrics_result1 = per_class_metrics.compute(average="macro")
+            metrics_result1 = per_class_metrics.compute(average="macro", zero_division=0)
             metrics_result2 = global_metrics.compute()
+            metric_f1_result = metric_f1.compute(average="macro")
 
             if args.with_tracking and 'wandb' in args.report_to:
+                current_lr = optimizer.param_groups[0]['lr']
+
                 metrics_dict = {
                     "accuracy": metrics_result2["accuracy"],
                     "precision": metrics_result1["precision"],
                     "recall": metrics_result1["recall"],
-                    "f1": metrics_result1["f1"],
+                    "f1": metric_f1_result["f1"],
                     "specificity": metrics_result2["specificity"],
                     "train_loss": total_loss.item() / len(train_dataloader),
                     "epoch": epoch,
                     "step": completed_steps,
+                    "learning_rate": current_lr
                 }
 
                 # Log confusion matrix
@@ -867,13 +817,18 @@ def main():
                     repo_type="model",
                     token=args.hub_token,
                 )
-            all_results = {
-                "eval_accuracy": accuracy["accuracy"],
-                "eval_precision": precision["precision"],
-                "eval_recall": recall["recall"],
-                "eval_f1": f1["f1"],
-                "eval_specificity": specificity["specificity"]
+            metrics_dict = {
+                "accuracy": metrics_result2["accuracy"],
+                "precision": metrics_result1["precision"],
+                "recall": metrics_result1["recall"],
+                "f1": metrics_result1["f1"],
+                "specificity": metrics_result2["specificity"],
+                "train_loss": total_loss.item() / len(train_dataloader),
+                "epoch": epoch,
+                "step": completed_steps,
             }
+            all_results = {f"eval_{k}": v for k, v in metrics_dict.items()}
+
             with open(os.path.join(args.output_dir, "all_results.json"), "w") as f:
                 json.dump(all_results, f)
 

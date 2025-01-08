@@ -16,7 +16,7 @@ usage() {
     echo "Options:"
     echo "  -m MODEL_TYPE     Model type (use --list to see available models)"
     echo "  -d DATASET        Dataset name (default: from config)"
-    echo "  -o OUTPUT_DIR     Output directory (default: ./outputs_\${MODEL_TYPE})"
+    echo "  -o OUTPUT_DIR     Output directory (default: ./output/outputs_\${MODEL_TYPE})"
     echo "  -b BATCH_SIZE     Batch size (default: from config)"
     echo "  -e EPOCHS         Number of epochs (default: from config)"
     echo "  -l LR            Learning rate (default: from config)"
@@ -125,14 +125,13 @@ python main.py \
     --output_dir "$OUTPUT_DIR" \
     --with_tracking \
     --report_to wandb \
-    --remove_unused_columns "false" \
     --label_column_name label \
     --ignore_mismatched_sizes \
     --do_eval \
     --model_name_or_path "$MODEL_NAME" \
     --learning_rate "$LEARNING_RATE" \
-    --lr_scheduler_type "cosine_with_restarts" \
-    --num_warmup_steps 4 \
+    --lr_scheduler_type "cosine" \
+    --weight_decay 0.01 \
     --num_train_epochs "$EPOCHS" \
     --per_device_train_batch_size "$BATCH_SIZE" \
     --per_device_eval_batch_size "$BATCH_SIZE" \
@@ -143,5 +142,6 @@ python main.py \
     --save_total_limit "$(get_json_value '.default_settings.save_total_limit')" \
     --seed "$(get_json_value '.default_settings.seed')" \
 
+#--num_warmup_steps 4 \
 #--push_to_hub \
 #--push_to_hub_model_id "$MODEL_ID" \
