@@ -140,6 +140,8 @@ python main.py \
     --save_strategy epoch \
     --load_best_model_at_end "true" \
     --save_total_limit "$(get_json_value '.default_settings.save_total_limit')" \
+    --push_to_hub 
+    --push_to_hub_model_id "vit_large-model" 
     --seed "$(get_json_value '.default_settings.seed')" \
 
 #--num_warmup_steps 4 \

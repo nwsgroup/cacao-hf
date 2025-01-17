@@ -418,17 +418,13 @@ def main():
         trust_remote_code=args.trust_remote_code,
     )
 
-    try:
-        model = AutoModelForImageClassification.from_pretrained(
-            args.model_name_or_path,
-            from_tf=bool(".ckpt" in args.model_name_or_path),
-            config=config,
-            ignore_mismatched_sizes=args.ignore_mismatched_sizes,
-            trust_remote_code=args.trust_remote_code,
-        )
-    except Exception as e:
-        config = TimmConfig.from_pretrained(args.model_name_or_path)
-        model = TimmForImageClassification.from_pretrained(args.model_name_or_path, config, num_labels=len(labels))
+    model = AutoModelForImageClassification.from_pretrained(
+        args.model_name_or_path,
+        from_tf=bool(".ckpt" in args.model_name_or_path),
+        config=config,
+        ignore_mismatched_sizes=args.ignore_mismatched_sizes,
+        trust_remote_code=args.trust_remote_code,
+    )
 
     # Preprocessing of the datasets
     if "shortest_edge" in image_processor.size:
@@ -821,7 +817,7 @@ def main():
                 "accuracy": metrics_result2["accuracy"],
                 "precision": metrics_result1["precision"],
                 "recall": metrics_result1["recall"],
-                "f1": metrics_result1["f1"],
+                "f1": metric_f1_result["f1"],
                 "specificity": metrics_result2["specificity"],
                 "train_loss": total_loss.item() / len(train_dataloader),
                 "epoch": epoch,

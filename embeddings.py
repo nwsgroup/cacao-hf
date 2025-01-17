@@ -70,11 +70,17 @@ def huggingface_embedding(
 
 
 DATASET_NAME = "SemilleroCV/Cocoa-dataset"
-dataset = datasets.load_dataset(DATASET_NAME, split='all')
+dataset = datasets.load_dataset(DATASET_NAME, split='all', use_auth_token=True)
 
 df = dataset.to_pandas()
 
-ft_model_name = "Factral/convnext_xlarge-cocoa"
+ft_model_name = "Factral/vit_large-model"
+
+#CristianR8/vit_large-model
+#CristianR8/vit_base-model
+#CristianR8/vgg19-model
+#CristianR8/mobilenet_large-model
+
 
 df_emb = huggingface_embedding(df, modelname=ft_model_name)
 df = pd.concat([df, df_emb], axis=1)

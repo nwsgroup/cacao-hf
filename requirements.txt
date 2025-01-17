@@ -6,12 +6,12 @@ seaborn
 torch
 accelerate
 tqdm
-transformers>=4.22.0
+transformers
 torchvision
 evaluate
 scikit-learn==1.5.2
 wandb
-timmx
+timm
 python-dotenv
 annoy 
 renumics-spotlight
