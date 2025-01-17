@@ -427,12 +427,15 @@ def main():
     )
 
     # Preprocessing of the datasets
-    if "shortest_edge" in image_processor.size:
-        size = image_processor.size["shortest_edge"]
+
+    if "shortest_edge" in image_processor.data_config["input_size"]:
+        size = image_processor.input_size["shortest_edge"]
     else:
-        size = (image_processor.size["height"], image_processor.size["width"])
+        #size = (image_processor.input_size["height"], image_processor.size["width"])
+        size = image_processor.data_config["input_size"][1], image_processor.data_config["input_size"][2]
     normalize = (
-        Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
+        #Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
+        Normalize(mean=image_processor.data_config["mean"], std=image_processor.data_config["std"])
         if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std")
         else Lambda(lambda x: x)
     )
