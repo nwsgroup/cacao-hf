@@ -54,7 +54,8 @@ def huggingface_embedding(
     # initialize huggingface model
     feature_extractor = AutoFeatureExtractor.from_pretrained(modelname)
     if "vit" in modelname:
-        model = AutoModel.from_pretrained(modelname, output_hidden_states=True, add_pooling_layer=False)
+        #model = AutoModel.from_pretrained(modelname, output_hidden_states=True, add_pooling_layer=False)
+        model = AutoModel.from_pretrained(modelname, output_hidden_states=True)
     else:
         model = AutoModel.from_pretrained(modelname, output_hidden_states=True)
     # create huggingface dataset from df
