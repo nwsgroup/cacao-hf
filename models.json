@@ -128,7 +128,7 @@
     }
   },
   "default_settings": {
-    "dataset": "SemilleroCV/Cocoa-dataset",
+    "dataset": "SemilleroCV/Cocoa-dataset-2",
     "epochs": 100,
     "seed": 1337,
     "logging_steps": 1000,

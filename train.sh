@@ -132,7 +132,7 @@ python main.py \
     --learning_rate "$LEARNING_RATE" \
     --lr_scheduler_type "cosine" \
     --weight_decay 0.01 \
-    --num_train_epochs "$EPOCHS" \
+    --num_train_epochs 100 \
     --per_device_train_batch_size "$BATCH_SIZE" \
     --per_device_eval_batch_size "$BATCH_SIZE" \
     --logging_strategy epoch \
@@ -140,8 +140,8 @@ python main.py \
     --save_strategy epoch \
     --load_best_model_at_end "true" \
     --save_total_limit "$(get_json_value '.default_settings.save_total_limit')" \
-    --push_to_hub 
-    --push_to_hub_model_id "vit_large-model" 
+    --push_to_hub \
+    --push_to_hub_model_id "vit_base-model" \
     --seed "$(get_json_value '.default_settings.seed')" \
 
 #--num_warmup_steps 4 \

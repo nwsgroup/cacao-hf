@@ -1,0 +1,38 @@
+project: cocoa-image-classification
+method: bayes
+metric:
+  name: eval_accuracy
+  goal: maximize
+parameters:
+  learning_rate:
+    distribution: log_uniform
+    min: 1e-5
+    max: 1e-3
+  num_train_epochs:
+    values: [50, 70, 100]
+  per_device_train_batch_size:
+    values: [8, 16, 32]
+  lr_scheduler_type:
+    values: ["linear", "cosine"]
+  weight_decay:
+    distribution: uniform
+    min: 0.0
+    max: 0.05
+program: main.py
+command:
+  - ${env}
+  - python
+  - ${program}
+  - ${args}
+  - "--model_name_or_path=timm/vgg19.tv_in1k"
+  - "--dataset_name=SemilleroCV/Cocoa-dataset-2"
+  - "--with_tracking"
+  - "--report_to=wandb"
+  - "--output_dir=./outputs/${wandb.run.id}" 
+  - "--ignore_mismatched_sizes" 
+  - "--logging_strategy=epoch"
+  - "--eval_strategy=epoch"
+  - "--save_strategy=epoch"
+  - "--load_best_model_at_end=true"
+  - "--do_eval" 
+  - "--seed=42"

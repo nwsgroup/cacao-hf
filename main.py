@@ -309,6 +309,45 @@ def parse_args():
     return args
     
 
+
+
+def create_preprocessor_config(image_processor, output_dir):
+    """Create preprocessor config from current model and image processor parameters"""
+    try:
+        # Extract preprocessing info from the image processor
+        preprocessor_config = {
+            "do_normalize": True,
+            "do_rescale": True,
+            "do_resize": True,
+            "image_mean": image_processor.data_config["mean"],
+            "image_std": image_processor.data_config["std"],
+            "resample": 3,  # BICUBIC
+            "rescale_factor": 0.00392156862745098,  # 1/255
+            "image_processor_type": "timm_wrapper"
+        }
+        #print()
+        #import pdb;  pdb.set_trace()
+
+        # Handle size configuration
+        if "shortest_edge" in image_processor.data_config["input_size"]:
+            preprocessor_config["size"] = {
+                "shortest_edge": image_processor.data_config["input_size"][1]
+            }
+        else:
+            preprocessor_config["size"] = {
+                "height": image_processor.data_config["input_size"][1],
+                "width": image_processor.data_config["input_size"][2]
+            }
+
+        # Save preprocessor config
+        save_path = os.path.join(output_dir, 'preprocessor_config.json')
+        with open(save_path, 'w') as f:
+            json.dump(preprocessor_config, f, indent=2)
+        #import pdb; pdb.set_trace()
+
+    except Exception as e:
+        logger.error(f"Error creating preprocessor config: {str(e)}")
+
 # ---------------------------------------------
 # Main Function
 # ---------------------------------------------
@@ -427,12 +466,15 @@ def main():
     )
 
     # Preprocessing of the datasets
-    if "shortest_edge" in image_processor.size:
-        size = image_processor.size["shortest_edge"]
+
+    if "shortest_edge" in image_processor.data_config["input_size"]:
+        size = image_processor.input_size["shortest_edge"]
     else:
-        size = (image_processor.size["height"], image_processor.size["width"])
+        #size = (image_processor.input_size["height"], image_processor.size["width"])
+        size = image_processor.data_config["input_size"][1], image_processor.data_config["input_size"][2]
     normalize = (
-        Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
+        #Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
+        Normalize(mean=image_processor.data_config["mean"], std=image_processor.data_config["std"])
         if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std")
         else Lambda(lambda x: x)
     )
@@ -772,8 +814,12 @@ def main():
                 
                 
             if args.push_to_hub and epoch < args.num_train_epochs - 1:
+
                 accelerator.wait_for_everyone()
                 unwrapped_model = accelerator.unwrap_model(model)
+
+                create_preprocessor_config(image_processor, args.output_dir)
+                
                 unwrapped_model.save_pretrained(
                     args.output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
                 )
@@ -799,6 +845,7 @@ def main():
 
     if args.output_dir is not None:
         accelerator.wait_for_everyone()
+        create_preprocessor_config(image_processor, args.output_dir)
         unwrapped_model = accelerator.unwrap_model(model)
         unwrapped_model.save_pretrained(
             args.output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
