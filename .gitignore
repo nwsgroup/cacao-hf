@@ -6,6 +6,8 @@ logs/*
 data.csv
 .vscode/*
 models/*
+env_cacao/*
+
 
 
 # Byte-compiled / optimized / DLL files
