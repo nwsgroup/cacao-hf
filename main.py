@@ -362,7 +362,7 @@ def main():
                               mixed_precision="bf16")
 
     # Send telemetry
-    send_example_telemetry("cacao-hf3", args)
+    send_example_telemetry("cacao-hf3-HSV", args)
 
     logger.info(accelerator.state)
     # Make one log on every process with the configuration for debugging.
@@ -602,7 +602,7 @@ def main():
         experiment_config = vars(args)
         # TensorBoard no puede registrar Enums, necesitamos el valor crudo
         experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
-        accelerator.init_trackers("cacao-hf3", experiment_config)
+        accelerator.init_trackers("cacao-hf3-HSV", experiment_config)
 
     metric_accuracy = evaluate.load("accuracy")
     metric_specificity = SpecificityMetric()
@@ -670,7 +670,7 @@ def main():
     progress_bar.update(completed_steps)
 
     for epoch in range(starting_epoch, args.num_train_epochs):
-        print(f"Epoch {epoch}")
+        print(f"Estoy en el epoch {epoch}")
         model.train()
         if args.with_tracking:
             total_loss = 0
@@ -680,6 +680,7 @@ def main():
         else:
             active_dataloader = train_dataloader
         for step, batch in enumerate(active_dataloader):
+            print(f"Batch {step} preparado")
             with accelerator.accumulate(model):
                 outputs = model(**batch)
                 loss = outputs.loss

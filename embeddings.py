@@ -70,7 +70,7 @@ def huggingface_embedding(
     return df_emb
 
 
-DATASET_NAME = "SemilleroCV/Cocoa-dataset"
+DATASET_NAME = "CristianR8/CacaoHSV"
 dataset = datasets.load_dataset(DATASET_NAME, split='all', use_auth_token=True)
 
 df = dataset.to_pandas()

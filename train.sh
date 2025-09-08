@@ -121,7 +121,7 @@ echo "Run Name: $RUN_NAME"
 
 # Execute training
 python main.py \
-    --dataset_name "$DATASET" \
+    --dataset_name CristianR8/CacaoHSV \
     --output_dir "$OUTPUT_DIR" \
     --with_tracking \
     --report_to wandb \
@@ -129,10 +129,11 @@ python main.py \
     --ignore_mismatched_sizes \
     --do_eval \
     --model_name_or_path "$MODEL_NAME" \
+    --trust_remote_code \
     --learning_rate "$LEARNING_RATE" \
     --lr_scheduler_type "cosine" \
     --weight_decay 0.01 \
-    --num_train_epochs 100 \
+    --num_train_epochs "$EPOCHS" \
     --per_device_train_batch_size "$BATCH_SIZE" \
     --per_device_eval_batch_size "$BATCH_SIZE" \
     --logging_strategy epoch \
@@ -141,9 +142,13 @@ python main.py \
     --load_best_model_at_end "true" \
     --save_total_limit "$(get_json_value '.default_settings.save_total_limit')" \
     --push_to_hub \
-    --push_to_hub_model_id "vit_large-model" \
+    --push_to_hub_model_id "vit_base-model" \
     --seed "$(get_json_value '.default_settings.seed')" \
 
 #--num_warmup_steps 4 \
 #--push_to_hub \
 #--push_to_hub_model_id "$MODEL_ID" \
+#--with_tracking \
+#--report_to wandb \
+#--push_to_hub \
+#--push_to_hub_model_id "${MODEL_TYPE}-cacao-model" \
