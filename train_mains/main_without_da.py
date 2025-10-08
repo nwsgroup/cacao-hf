@@ -309,6 +309,8 @@ def parse_args():
     return args
     
 
+
+
 def create_preprocessor_config(image_processor, output_dir):
     """Create preprocessor config from current model and image processor parameters"""
     try:
@@ -360,7 +362,7 @@ def main():
                               mixed_precision="bf16")
 
     # Send telemetry
-    send_example_telemetry("binary_best_100e", args)
+    send_example_telemetry("rgb_sin_aumento", args)
 
     logger.info(accelerator.state)
     # Make one log on every process with the configuration for debugging.
@@ -478,12 +480,14 @@ def main():
     )
     train_transforms = Compose(
         [
-            RandomResizedCrop(size),
-            RandomHorizontalFlip(p=0.5),  
-            RandomVerticalFlip(p=0.2),
-            RandomRotation(degrees=15),  
-            RandomAffine(degrees=0, translate=(0.1, 0.1)),  
-            RandomPerspective(distortion_scale=0.2, p=0.5),
+            ##RandomResizedCrop(size),
+            ##RandomHorizontalFlip(p=0.5),  
+            ##RandomVerticalFlip(p=0.2),
+            ##RandomRotation(degrees=15),  
+            ##RandomAffine(degrees=0, translate=(0.1, 0.1)),  
+            ##RandomPerspective(distortion_scale=0.2, p=0.5),
+            Resize(size),
+            CenterCrop(size),
             ToTensor(),
             normalize,
         ]
@@ -600,7 +604,7 @@ def main():
         experiment_config = vars(args)
         # TensorBoard no puede registrar Enums, necesitamos el valor crudo
         experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
-        accelerator.init_trackers("binary_best_100e", experiment_config)
+        accelerator.init_trackers("rgb_sin_aumento", experiment_config)
 
     metric_accuracy = evaluate.load("accuracy")
     metric_specificity = SpecificityMetric()

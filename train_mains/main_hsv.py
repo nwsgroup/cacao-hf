@@ -43,6 +43,10 @@ from typing import Dict, List, Optional, Union
 
 from utils import get_image_processor, SpecificityMetric, TimmConfig, TimmForImageClassification
 
+# Estadisticas del dataset IA4CACAO-HSV (Diferentes a las de ImageNet)
+HSV_MEAN = [0.3223883397339916, 0.4731938141664545, 0.08567523469817104]
+HSV_STD = [0.07796305794977385, 0.08262700845749942, 0.08343656989520418]
+
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.47.0.dev0")
 require_version("datasets>=2.0.0", "To fix: pip install -r requirements.txt")
@@ -317,8 +321,8 @@ def create_preprocessor_config(image_processor, output_dir):
             "do_normalize": True,
             "do_rescale": True,
             "do_resize": True,
-            "image_mean": image_processor.data_config["mean"],
-            "image_std": image_processor.data_config["std"],
+            "image_mean": HSV_MEAN,
+            "image_std": HSV_STD,
             "resample": 3,  # BICUBIC
             "rescale_factor": 0.00392156862745098,  # 1/255
             "image_processor_type": "timm_wrapper"
@@ -360,7 +364,7 @@ def main():
                               mixed_precision="bf16")
 
     # Send telemetry
-    send_example_telemetry("binary_best_100e", args)
+    send_example_telemetry("500-cacao-hf5-HSV", args)
 
     logger.info(accelerator.state)
     # Make one log on every process with the configuration for debugging.
@@ -472,9 +476,9 @@ def main():
         size = image_processor.data_config["input_size"][1], image_processor.data_config["input_size"][2]
     normalize = (
         #Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
-        Normalize(mean=image_processor.data_config["mean"], std=image_processor.data_config["std"])
-        if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std")
-        else Lambda(lambda x: x)
+        Normalize(mean=HSV_MEAN, std=HSV_STD)
+        #if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std")
+        #else Lambda(lambda x: x)
     )
     train_transforms = Compose(
         [
@@ -500,14 +504,14 @@ def main():
     def preprocess(example_batch):
         """Apply training transformations in a batch."""
         example_batch["pixel_values"] = [
-            train_transforms(image.convert("RGB")) for image in example_batch[args.image_column_name]
+            train_transforms(image) for image in example_batch[args.image_column_name]
         ]
         return example_batch
 
     def preprocess_val(example_batch):
         """Apply validation transformations in a batch."""
         example_batch["pixel_values"] = [
-            val_transforms(image.convert("RGB")) for image in example_batch[args.image_column_name]
+            val_transforms(image) for image in example_batch[args.image_column_name]
         ]
         return example_batch
 
@@ -600,7 +604,7 @@ def main():
         experiment_config = vars(args)
         # TensorBoard no puede registrar Enums, necesitamos el valor crudo
         experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
-        accelerator.init_trackers("binary_best_100e", experiment_config)
+        accelerator.init_trackers("500-cacao-hf5-HSV", experiment_config)
 
     metric_accuracy = evaluate.load("accuracy")
     metric_specificity = SpecificityMetric()
@@ -797,9 +801,9 @@ def main():
                     ref = all_references[idx]
                 
                     # Denormalize image if needed
-                    if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std"):
-                        img = img * np.array(image_processor.image_std).reshape(-1, 1, 1) + np.array(image_processor.image_mean).reshape(-1, 1, 1)
-                        img = np.clip(img, 0, 1)
+                    #if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std"):
+                    img = img * np.array(HSV_STD).reshape(-1, 1, 1) + np.array(HSV_MEAN).reshape(-1, 1, 1)
+                    img = np.clip(img, 0, 1)
 
                     img_tensor = torch.tensor(img)
                     pil_img = to_pil_image(img_tensor)

@@ -25,7 +25,7 @@ command:
   - ${program}
   - ${args}
   - "--model_name_or_path=timm/vgg19.tv_in1k"
-  - "--dataset_name=CristianR8/CacaoHSV"
+  - "--dataset_name=CristianR8/IA4CACAO-HSV"
   - "--with_tracking"
   - "--report_to=wandb"
   - "--output_dir=./outputs/${wandb.run.id}" 

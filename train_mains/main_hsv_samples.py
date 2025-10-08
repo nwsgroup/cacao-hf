@@ -6,6 +6,7 @@ import wandb
 import os
 from pathlib import Path
 import sys
+from collections import defaultdict, Counter
 
 import datasets
 import evaluate
@@ -43,12 +44,74 @@ from typing import Dict, List, Optional, Union
 
 from utils import get_image_processor, SpecificityMetric, TimmConfig, TimmForImageClassification
 
+# Estadisticas del dataset IA4CACAO-HSV (Diferentes a las de ImageNet)
+HSV_MEAN = [0.3223883397339916, 0.4731938141664545, 0.08567523469817104]
+HSV_STD = [0.07796305794977385, 0.08262700845749942, 0.08343656989520418]
+
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.47.0.dev0")
 require_version("datasets>=2.0.0", "To fix: pip install -r requirements.txt")
 
 # Initialize logger
 logger = get_logger(__name__)
+
+def count_per_class(ds, label_col, names):
+    cnt = Counter(ds[label_col])
+    for i,n in enumerate(names):
+        print(f"{i} ({n}): {cnt.get(i, 0)}")
+# ---------------------------------------------
+def subset_min_per_class(ds_split, label_col, n_total, min_per_class=1, seed=42):
+    """
+    Crea un subconjunto de tamaño n_total garantizando al menos `min_per_class`
+    por clase (si hay disponibilidad), y rellena el resto al azar.
+    - ds_split: datasets.Dataset (p.ej. dataset["train"])
+    - label_col: nombre de la columna de la etiqueta (p.ej. "label")
+    - n_total: tamaño objetivo del subset
+    - min_per_class: mínimo por clase a garantizar
+    - seed: semilla
+    """
+    rng = np.random.default_rng(seed)
+    labels = np.array(ds_split[label_col])
+    n = len(labels)
+    classes = sorted(set(labels))
+    num_classes = len(classes)
+
+    if n_total < min(num_classes, n) and min_per_class > 0:
+        raise ValueError(f"n_total={n_total} es menor que el número de clases={num_classes}; "
+                         f"no se puede garantizar ≥{min_per_class}/clase.")
+
+    # indices por clase
+    idx_by_class = defaultdict(list)
+    for i, y in enumerate(labels):
+        idx_by_class[y].append(i)
+
+    # 1) tomar el mínimo garantizado por clase
+    chosen = []
+    for c in classes:
+        pool = idx_by_class[c]
+        take = min(min_per_class, len(pool))  # si una clase tiene 0, no podemos inventarla
+        if take > 0:
+            chosen.extend(rng.choice(pool, size=take, replace=False).tolist())
+
+    chosen_set = set(chosen)
+
+    # 2) rellenar el resto al azar desde los no elegidos
+    remaining_slots = n_total - len(chosen)
+    if remaining_slots < 0:
+        # si el mínimo por clase ya excede n_total, recortamos (caso extremo)
+        chosen = chosen[:n_total]
+        remaining_slots = 0
+
+    if remaining_slots > 0:
+        remaining_pool = [i for i in range(n) if i not in chosen_set]
+        if remaining_slots > len(remaining_pool):
+            raise ValueError("No hay suficientes ejemplos para alcanzar n_total con las restricciones dadas.")
+        chosen.extend(rng.choice(remaining_pool, size=remaining_slots, replace=False).tolist())
+
+    # barajar el orden final para no sesgar por clase
+    rng.shuffle(chosen)
+    return ds_split.select(chosen)
+# ---------------------------------------------
         
 # ---------------------------------------------
 # Argument Parsing
@@ -317,8 +380,8 @@ def create_preprocessor_config(image_processor, output_dir):
             "do_normalize": True,
             "do_rescale": True,
             "do_resize": True,
-            "image_mean": image_processor.data_config["mean"],
-            "image_std": image_processor.data_config["std"],
+            "image_mean": HSV_MEAN,
+            "image_std": HSV_STD,
             "resample": 3,  # BICUBIC
             "rescale_factor": 0.00392156862745098,  # 1/255
             "image_processor_type": "timm_wrapper"
@@ -360,7 +423,7 @@ def main():
                               mixed_precision="bf16")
 
     # Send telemetry
-    send_example_telemetry("binary_best_100e", args)
+    send_example_telemetry("1k-cacao-hf6-HSV", args)
 
     logger.info(accelerator.state)
     # Make one log on every process with the configuration for debugging.
@@ -416,7 +479,7 @@ def main():
         )
 
     # Check the columns of the dataset
-    dataset_column_names = dataset["train"].column_names if "train" in dataset else dataset["test"].column_names
+    dataset_column_names = dataset["train"].column_names if "train" in dataset else dataset["test"].column_namesMus
     if args.image_column_name not in dataset_column_names:
         raise ValueError(
             f"--image_column_name {args.image_column_name} no encontrado en el dataset '{args.dataset_name}'. "
@@ -427,6 +490,22 @@ def main():
             f"--label_column_name {args.label_column_name} no encontrado en el dataset '{args.dataset_name}'. "
             "Asegúrate de establecer --label_column_name al nombre correcto de la columna de etiquetas."
         )
+    
+    N_TRAIN = 960
+    N_EVAL = 240
+
+    train_full = dataset["train"]
+    test_full = dataset["test"]
+
+    seed_eff = args.seed if args.seed is not None else 42
+    subset_train = subset_min_per_class(train_full, args.label_column_name, N_TRAIN, min_per_class=1, seed=seed_eff)
+    subset_eval = subset_min_per_class(test_full, args.label_column_name, N_EVAL, min_per_class=1, seed=seed_eff)
+    print("Distribución subset TRAIN:")
+    count_per_class(subset_train, args.label_column_name, dataset["train"].features[args.label_column_name].names)
+    print("Distribución subset TEST:")
+    count_per_class(subset_eval,  args.label_column_name, dataset["test"].features[args.label_column_name].names)
+    dataset["train"] = subset_train
+    dataset["test"] = subset_eval
 
     # Split the dataset if validation not exist
     """ args.train_val_split = None if "validation" in dataset.keys() else args.train_val_split
@@ -472,9 +551,9 @@ def main():
         size = image_processor.data_config["input_size"][1], image_processor.data_config["input_size"][2]
     normalize = (
         #Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
-        Normalize(mean=image_processor.data_config["mean"], std=image_processor.data_config["std"])
-        if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std")
-        else Lambda(lambda x: x)
+        Normalize(mean=HSV_MEAN, std=HSV_STD)
+        #if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std")
+        #else Lambda(lambda x: x)
     )
     train_transforms = Compose(
         [
@@ -500,14 +579,14 @@ def main():
     def preprocess(example_batch):
         """Apply training transformations in a batch."""
         example_batch["pixel_values"] = [
-            train_transforms(image.convert("RGB")) for image in example_batch[args.image_column_name]
+            train_transforms(image) for image in example_batch[args.image_column_name]
         ]
         return example_batch
 
     def preprocess_val(example_batch):
         """Apply validation transformations in a batch."""
         example_batch["pixel_values"] = [
-            val_transforms(image.convert("RGB")) for image in example_batch[args.image_column_name]
+            val_transforms(image) for image in example_batch[args.image_column_name]
         ]
         return example_batch
 
@@ -600,7 +679,7 @@ def main():
         experiment_config = vars(args)
         # TensorBoard no puede registrar Enums, necesitamos el valor crudo
         experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
-        accelerator.init_trackers("binary_best_100e", experiment_config)
+        accelerator.init_trackers("1k-cacao-hf6-HSV", experiment_config)
 
     metric_accuracy = evaluate.load("accuracy")
     metric_specificity = SpecificityMetric()
@@ -797,9 +876,9 @@ def main():
                     ref = all_references[idx]
                 
                     # Denormalize image if needed
-                    if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std"):
-                        img = img * np.array(image_processor.image_std).reshape(-1, 1, 1) + np.array(image_processor.image_mean).reshape(-1, 1, 1)
-                        img = np.clip(img, 0, 1)
+                    #if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std"):
+                    img = img * np.array(HSV_STD).reshape(-1, 1, 1) + np.array(HSV_MEAN).reshape(-1, 1, 1)
+                    img = np.clip(img, 0, 1)
 
                     img_tensor = torch.tensor(img)
                     pil_img = to_pil_image(img_tensor)

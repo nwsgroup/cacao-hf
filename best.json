@@ -1,0 +1,41 @@
+{
+  "models": {
+    "vit_large": {
+      "name": "timm/vit_large_patch16_224.augreg_in21k_ft_in1k",
+      "batch_size": 16,
+      "learning_rate": "1e-4",
+      "description": "ViT Large model (632M parameters) - ImageNet-21k pretrained"
+    },
+    "convnext_xlarge": {
+      "name": "timm/convnext_xlarge.fb_in22k_ft_in1k",
+      "batch_size": 16,
+      "learning_rate": "1e-4",
+      "description": "ConvNeXt XLarge (350M parameters) - ImageNet-22k pretrained"
+    },
+    "mobilenetv3_large": {
+      "name": "timm/mobilenetv3_large_100.ra_in1k",
+      "batch_size": 16,
+      "learning_rate": "3e-5",
+      "description": "MobileNetV3 Large (5.5M parameters) - Efficient mobile architecture"
+    },
+    "beit_large": {
+      "name": "timm/beitv2_large_patch16_224.in1k_ft_in22k_in1k",
+      "batch_size": 16,
+      "learning_rate": "1e-4",
+      "description": "BEiT Large (325M parameters) - ImageNet-22k pretrained"
+    },
+    "vit_base": {
+      "name": "timm/vit_base_patch16_224.augreg_in21k_ft_in1k",
+      "batch_size": 16,
+      "learning_rate": "1e-4",
+      "description": "ViT Base model (86M parameters) - ImageNet-21k pretrained"
+    }
+  },
+  "default_settings": {
+    "dataset": "CristianR8/BINARY-IA4CACAO-RGB",
+    "epochs": 100,
+    "seed": 1337,
+    "logging_steps": 1000,
+    "save_total_limit": 3
+  }
+}

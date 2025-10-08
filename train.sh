@@ -6,7 +6,7 @@ set -e
 # Function to read JSON values using jq
 get_json_value() {
     local key=$1
-    jq -r "$key" models.json
+    jq -r "$key" best.json
 }
 
 # Function to print usage information
@@ -28,8 +28,8 @@ usage() {
 # Function to list available models
 list_available_models() {
     echo "Available models:"
-    jq -r '.models | keys[]' models.json | while read -r model; do
-        description=$(jq -r ".models.${model}.description" models.json)
+    jq -r '.models | keys[]' best.json | while read -r model; do
+        description=$(jq -r ".models.${model}.description" best.json)
         echo "  - $model: $description"
     done
 }
@@ -41,8 +41,8 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # Check if config file exists
-if [ ! -f "models.json" ]; then
-    echo "Error: models.json configuration file not found"
+if [ ! -f "best.json" ]; then
+    echo "Error: best.json configuration file not found"
     exit 1
 fi
 
@@ -79,7 +79,7 @@ if [ -z "$MODEL_TYPE" ]; then
 fi
 
 # Check if model exists in config
-if ! jq -e ".models.$MODEL_TYPE" models.json > /dev/null; then
+if ! jq -e ".models.$MODEL_TYPE" best.json > /dev/null; then
     echo "Error: Invalid model type: $MODEL_TYPE"
     list_available_models
     exit 1
@@ -121,10 +121,10 @@ echo "Run Name: $RUN_NAME"
 
 # Execute training
 python main.py \
-    --dataset_name CristianR8/CacaoHSV \
+    --dataset_name CristianR8/BINARY-IA4CACAO-RGB \
     --output_dir "$OUTPUT_DIR" \
     --with_tracking \
-    --report_to wandb \
+    --report_to "wandb" \
     --label_column_name label \
     --ignore_mismatched_sizes \
     --do_eval \
@@ -141,8 +141,6 @@ python main.py \
     --save_strategy epoch \
     --load_best_model_at_end "true" \
     --save_total_limit "$(get_json_value '.default_settings.save_total_limit')" \
-    --push_to_hub \
-    --push_to_hub_model_id "vit_base-model" \
     --seed "$(get_json_value '.default_settings.seed')" \
 
 #--num_warmup_steps 4 \

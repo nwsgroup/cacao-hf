@@ -5,7 +5,7 @@ set -e
 
 # Parámetros de entrenamiento uniformes
 BATCH_SIZE=16
-EPOCHS=10
+EPOCHS=100
 LEARNING_RATE=1e-4
 COOLDOWN_TIME=30  # segundos entre entrenamientos
 
@@ -34,8 +34,8 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-if [ ! -f "models.json" ]; then
-    echo "Error: archivo models.json no encontrado"
+if [ ! -f "best.json" ]; then
+    echo "Error: archivo best.json no encontrado"
     exit 1
 fi
 
@@ -45,7 +45,7 @@ if [ ! -f "train.sh" ]; then
 fi
 
 # Obtener lista de modelos
-MODELS=( $(jq -r '.models | keys[]' models.json) )
+MODELS=( $(jq -r '.models | keys[]' best.json) )
 
 # Mostrar configuración
 echo "================================================================"
@@ -94,8 +94,8 @@ for i in "${!MODELS[@]}"; do
     MODEL_START_TIME=$(date +%s)
     
     # Obtener información del modelo del JSON
-    MODEL_INFO=$(jq -r ".models.$MODEL.description" models.json)
-    MODEL_NAME=$(jq -r ".models.$MODEL.name" models.json)
+    MODEL_INFO=$(jq -r ".models.$MODEL.description" best.json)
+    MODEL_NAME=$(jq -r ".models.$MODEL.name" best.json)
     
     echo "Modelo: $MODEL_NAME"
     echo "Descripción: $MODEL_INFO"
