@@ -100,33 +100,6 @@ def parse_args():
         os.makedirs(args.output_dir, exist_ok=True)
     return args
 
-def create_preprocessor_config(image_processor, output_dir):
-    try:
-        preprocessor_config = {
-            "do_normalize": True,
-            "do_rescale": True,
-            "do_resize": True,
-            "image_mean": image_processor.data_config["mean"],
-            "image_std": image_processor.data_config["std"],
-            "resample": 3,
-            "rescale_factor": 0.00392156862745098,
-            "image_processor_type": "timm_wrapper"
-        }
-        if "shortest_edge" in image_processor.data_config["input_size"]:
-            preprocessor_config["size"] = {
-                "shortest_edge": image_processor.data_config["input_size"][1]
-            }
-        else:
-            preprocessor_config["size"] = {
-                "height": image_processor.data_config["input_size"][1],
-                "width": image_processor.data_config["input_size"][2]
-            }
-        save_path = os.path.join(output_dir, 'preprocessor_config.json')
-        with open(save_path, 'w') as f:
-            json.dump(preprocessor_config, f, indent=2)
-    except Exception as e:
-        logger.error(f"Error creating preprocessor config: {str(e)}")
-
 def main():
     args = parse_args()
     accelerator = Accelerator(
@@ -442,7 +415,6 @@ def main():
                 accelerator.save_state(output_dir)
         if args.output_dir is not None:
             accelerator.wait_for_everyone()
-            create_preprocessor_config(image_processor, args.output_dir)
             unwrapped_model = accelerator.unwrap_model(model)
             unwrapped_model.save_pretrained(
                 args.output_dir,

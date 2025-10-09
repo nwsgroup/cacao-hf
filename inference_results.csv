@@ -1,0 +1,11 @@
+path,pred,topk_labels,topk_probs,prob_fermentado,prob_no_fermentado
+inferencia/fermentado.png,fermentado,fermentado|no_fermentado,1.000000|0.000000,1.000000,0.000000
+inferencia/no_fermentado10.jpg,fermentado,fermentado|no_fermentado,0.960167|0.039833,0.960167,0.039833
+inferencia/no_fermentado7.jpg,fermentado,fermentado|no_fermentado,0.567476|0.432524,0.567476,0.432524
+inferencia/no_fermentado8.jpg,fermentado,fermentado|no_fermentado,0.982311|0.017689,0.982311,0.017689
+inferencia/no_fermentado9.jpg,fermentado,fermentado|no_fermentado,0.990855|0.009145,0.990855,0.009145
+inferencia/no_fermentado_2.png,no_fermentado,no_fermentado|fermentado,0.999991|0.000009,0.000009,0.999991
+inferencia/no_fermentado_3.png,no_fermentado,no_fermentado|fermentado,0.999950|0.000050,0.000050,0.999950
+inferencia/no_fermentado_4.png,no_fermentado,no_fermentado|fermentado,0.999943|0.000057,0.000057,0.999943
+inferencia/no_fermentado_5.png,fermentado,fermentado|no_fermentado,0.694122|0.305878,0.694122,0.305878
+inferencia/no_fermentado_6.png,no_fermentado,no_fermentado|fermentado,0.999957|0.000043,0.000043,0.999957

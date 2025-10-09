@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-# infer_vit_timm_wrapper.py
+
 # Usage:
 #   python infer_vit_timm_wrapper.py \
 #       --model_id CristianR8/vit_large2-model \
@@ -84,7 +83,7 @@ def load_label_maps(cfg: AutoConfig) -> Tuple[List[str], dict, dict]:
 @torch.inference_mode()
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_id", default="CristianR8/vit_large2-model", help="HF model repo or local path")
+    parser.add_argument("--model_id", default="outputs/outputs_convnext_xlarge", help="HF model repo or local path")
     parser.add_argument("--input", required=True, help="Image file, directory, or a .txt/.csv list")
     parser.add_argument("--out", default="inference_results.csv", help="Output CSV path")
     parser.add_argument("--batch_size", type=int, default=16)
