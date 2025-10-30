@@ -5,7 +5,7 @@ set -e
 
 # Parámetros de entrenamiento uniformes
 BATCH_SIZE=16
-EPOCHS=100
+EPOCHS=200
 LEARNING_RATE=1e-4
 COOLDOWN_TIME=30  # segundos entre entrenamientos
 
@@ -34,8 +34,8 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-if [ ! -f "best.json" ]; then
-    echo "Error: archivo best.json no encontrado"
+if [ ! -f "models.json" ]; then
+    echo "Error: archivo models.json no encontrado"
     exit 1
 fi
 
@@ -45,7 +45,7 @@ if [ ! -f "train.sh" ]; then
 fi
 
 # Obtener lista de modelos
-MODELS=( $(jq -r '.models | keys[]' best.json) )
+MODELS=( $(jq -r '.models | keys[]' models.json) )
 
 # Mostrar configuración
 echo "================================================================"
@@ -94,8 +94,8 @@ for i in "${!MODELS[@]}"; do
     MODEL_START_TIME=$(date +%s)
     
     # Obtener información del modelo del JSON
-    MODEL_INFO=$(jq -r ".models.$MODEL.description" best.json)
-    MODEL_NAME=$(jq -r ".models.$MODEL.name" best.json)
+    MODEL_INFO=$(jq -r ".models.$MODEL.description" models.json)
+    MODEL_NAME=$(jq -r ".models.$MODEL.name" models.json)
     
     echo "Modelo: $MODEL_NAME"
     echo "Descripción: $MODEL_INFO"
@@ -112,7 +112,7 @@ for i in "${!MODELS[@]}"; do
         log_message "✅ [$MODEL_NUMBER/${#MODELS[@]}] Completado: $MODEL (Tiempo: $MODEL_ELAPSED)"
         
         # Verificar que el modelo se guardó
-        OUTPUT_DIR="./outputs/outputs_${MODEL}"
+        OUTPUT_DIR="./outputs_HSV/outputs_${MODEL}"
         if [ -f "$OUTPUT_DIR/model.safetensors" ]; then
             MODEL_SIZE=$(du -h "$OUTPUT_DIR/model.safetensors" | cut -f1)
             log_message "   Modelo guardado: $OUTPUT_DIR/model.safetensors ($MODEL_SIZE)"
@@ -179,7 +179,7 @@ done
 
 echo ""
 echo "📁 Logs disponibles en: ./logs/"
-echo "📁 Modelos guardados en: ./outputs/"
+echo "📁 Modelos guardados en: ./outputs_HSV/"
 
 # Crear resumen en archivo
 SUMMARY_FILE="logs/training_summary_$(date +%Y%m%d_%H%M%S).txt"

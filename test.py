@@ -1,8 +1,7 @@
-from transformers import AutoImageProcessor, AutoConfig, AutoModelForImageClassification
-m = "CristianR8/vit_large2-model"
-proc = AutoImageProcessor.from_pretrained(m, revision="main", trust_remote_code=True)
-print("Processor:", type(proc).__name__)
-cfg = AutoConfig.from_pretrained(m, trust_remote_code=True)
-print("Config model_type:", cfg.model_type)
-model = AutoModelForImageClassification.from_pretrained(m, trust_remote_code=True)
-print("Model:", type(model).__name__)
+from transformers import AutoImageProcessor
+
+proc = AutoImageProcessor.from_pretrained("/home/agrosavia/Documents/IA4CACAO/cacao-hf/outputs/outputs_convnext_xlarge", trust_remote_code= True)
+
+print("data_config", proc.data_config.keys())
+print("mean", proc.data_config["mean"])
+print("std", proc.data_config["std"])

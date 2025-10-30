@@ -129,7 +129,7 @@
   },
   "default_settings": {
     "dataset": "CristianR8/BINARY-IA4CACAO-RGB",
-    "epochs": 100,
+    "epochs": 25,
     "seed": 1337,
     "logging_steps": 1000,
     "save_total_limit": 3

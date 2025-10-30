@@ -6,7 +6,7 @@ set -e
 # Function to read JSON values using jq
 get_json_value() {
     local key=$1
-    jq -r "$key" best.json
+    jq -r "$key" models.json
 }
 
 # Function to print usage information
@@ -16,7 +16,7 @@ usage() {
     echo "Options:"
     echo "  -m MODEL_TYPE     Model type (use --list to see available models)"
     echo "  -d DATASET        Dataset name (default: from config)"
-    echo "  -o OUTPUT_DIR     Output directory (default: ./output/outputs_\${MODEL_TYPE})"
+    echo "  -o OUTPUT_DIR     Output directory (default: ./output_HSV/outputs_\${MODEL_TYPE})"
     echo "  -b BATCH_SIZE     Batch size (default: from config)"
     echo "  -e EPOCHS         Number of epochs (default: from config)"
     echo "  -l LR            Learning rate (default: from config)"
@@ -28,8 +28,8 @@ usage() {
 # Function to list available models
 list_available_models() {
     echo "Available models:"
-    jq -r '.models | keys[]' best.json | while read -r model; do
-        description=$(jq -r ".models.${model}.description" best.json)
+    jq -r '.models | keys[]' models.json | while read -r model; do
+        description=$(jq -r ".models.${model}.description" models.json)
         echo "  - $model: $description"
     done
 }
@@ -41,8 +41,8 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # Check if config file exists
-if [ ! -f "best.json" ]; then
-    echo "Error: best.json configuration file not found"
+if [ ! -f "models.json" ]; then
+    echo "Error: models.json configuration file not found"
     exit 1
 fi
 
@@ -79,7 +79,7 @@ if [ -z "$MODEL_TYPE" ]; then
 fi
 
 # Check if model exists in config
-if ! jq -e ".models.$MODEL_TYPE" best.json > /dev/null; then
+if ! jq -e ".models.$MODEL_TYPE" models.json > /dev/null; then
     echo "Error: Invalid model type: $MODEL_TYPE"
     list_available_models
     exit 1
@@ -93,7 +93,7 @@ DEFAULT_DATASET=$(get_json_value ".default_settings.dataset")
 DEFAULT_EPOCHS=$(get_json_value ".default_settings.epochs")
 
 # Set variables with defaults from config
-OUTPUT_DIR="${OUTPUT_DIR:-./outputs/outputs_${MODEL_TYPE}}"
+OUTPUT_DIR="${OUTPUT_DIR:-./outputs_Binary_200/outputs_${MODEL_TYPE}}"
 BATCH_SIZE="${BATCH_SIZE:-$DEFAULT_BATCH_SIZE}"
 LEARNING_RATE="${LEARNING_RATE:-$DEFAULT_LR}"
 DATASET="${DATASET:-$DEFAULT_DATASET}"

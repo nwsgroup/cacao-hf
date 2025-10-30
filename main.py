@@ -310,25 +310,25 @@ def parse_args():
     return args
     
 
-def create_preprocessor_config(image_processor, output_dir):
+def create_preprocessor_config(image_processor, output_dir, preprocessor_size):
     """Create preprocessor config from current model and image processor parameters"""
     try:
         # Extract preprocessing info from the image processor
         preprocessor_config = {
             "do_normalize": True,
-            "do_rescale": True,
+            "do_rescale": False,
             "do_resize": True,
             "image_mean": image_processor.data_config["mean"],
             "image_std": image_processor.data_config["std"],
             "resample": 3,  # BICUBIC
-            "rescale_factor": 0.00392156862745098,  # 1/255
+            "size": preprocessor_size,
             "image_processor_type": "timm_wrapper"
         }
         #print()
         #import pdb;  pdb.set_trace()
 
         # Handle size configuration
-        if "shortest_edge" in image_processor.data_config["input_size"]:
+        """ if "shortest_edge" in image_processor.data_config["input_size"]:
             preprocessor_config["size"] = {
                 "shortest_edge": image_processor.data_config["input_size"][1]
             }
@@ -337,7 +337,7 @@ def create_preprocessor_config(image_processor, output_dir):
                 "height": image_processor.data_config["input_size"][1],
                 "width": image_processor.data_config["input_size"][2]
             }
-
+ """
         # Save preprocessor config
         save_path = os.path.join(output_dir, 'preprocessor_config.json')
         with open(save_path, 'w') as f:
@@ -361,7 +361,7 @@ def main():
                               mixed_precision="bf16")
 
     # Send telemetry
-    send_example_telemetry("binary_best_100e", args)
+    send_example_telemetry("all_Binary_RGB_200", args)
 
     logger.info(accelerator.state)
     # Make one log on every process with the configuration for debugging.
@@ -438,8 +438,8 @@ def main():
 
     # Prepare the labels
     labels = dataset["train"].features[args.label_column_name].names
-    label2id = {label: str(i) for i, label in enumerate(labels)}
-    id2label = {str(i): label for i, label in enumerate(labels)}
+    label2id = {label: i for i, label in enumerate(labels)}
+    id2label = {i: label for i, label in enumerate(labels)}
 
     # Load pretrained model and image processor
     config = AutoConfig.from_pretrained(
@@ -465,17 +465,17 @@ def main():
     )
 
     # Preprocessing of the datasets
-
-    if "shortest_edge" in image_processor.data_config["input_size"]:
-        size = image_processor.input_size["shortest_edge"]
+    inp = image_processor.data_config["input_size"]
+    if isinstance(inp, dict) and "shortest_edge" in inp:
+        size = int(inp["shortest_edge"])
+        preprocessor_size = {"shortest_edge": size}
     else:
-        #size = (image_processor.input_size["height"], image_processor.size["width"])
-        size = image_processor.data_config["input_size"][1], image_processor.data_config["input_size"][2]
+        h, w = int(inp[1]), int(inp[2])
+        size = (h, w)
+        preprocessor_size = {"height": h, "width": w}
     normalize = (
         #Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
         Normalize(mean=image_processor.data_config["mean"], std=image_processor.data_config["std"])
-        if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std")
-        else Lambda(lambda x: x)
     )
     train_transforms = Compose(
         [
@@ -601,7 +601,7 @@ def main():
         experiment_config = vars(args)
         # TensorBoard no puede registrar Enums, necesitamos el valor crudo
         experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
-        accelerator.init_trackers("binary_best_100e", experiment_config)
+        accelerator.init_trackers("all_Binary_RGB_200", experiment_config)
 
     metric_accuracy = evaluate.load("accuracy")
     metric_specificity = SpecificityMetric()
@@ -713,7 +713,7 @@ def main():
                         )
                         if accelerator.is_main_process:
                             image_processor.save_pretrained(args.output_dir)
-                            create_preprocessor_config(image_processor, args.output_dir)
+                            create_preprocessor_config(image_processor, args.output_dir, preprocessor_size)
                             api.upload_folder(
                                 commit_message=f"Training in progress epoch {epoch}",
                                 folder_path=args.output_dir,
@@ -799,8 +799,10 @@ def main():
                     ref = all_references[idx]
                 
                     # Denormalize image if needed
-                    if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std"):
-                        img = img * np.array(image_processor.image_std).reshape(-1, 1, 1) + np.array(image_processor.image_mean).reshape(-1, 1, 1)
+                    if ("mean" in image_processor.data_config) and ("std" in image_processor.data_config):
+                        mean = np.array(image_processor.data_config["mean"]).reshape(-1, 1, 1)
+                        std = np.array(image_processor.data_config["std"]).reshape(-1, 1, 1)
+                        img =  img * std + mean
                         img = np.clip(img, 0, 1)
 
                     img_tensor = torch.tensor(img)
@@ -824,7 +826,7 @@ def main():
                 )
                 if accelerator.is_main_process:
                     image_processor.save_pretrained(args.output_dir)
-                    create_preprocessor_config(image_processor, args.output_dir)
+                    create_preprocessor_config(image_processor, args.output_dir, preprocessor_size)
                     api.upload_folder(
                         commit_message=f"Training in progress epoch {epoch}",
                         folder_path=args.output_dir,
@@ -851,7 +853,7 @@ def main():
         )
         if accelerator.is_main_process:
             image_processor.save_pretrained(args.output_dir)
-            create_preprocessor_config(image_processor, args.output_dir)
+            create_preprocessor_config(image_processor, args.output_dir, preprocessor_size)
             if args.push_to_hub:
                 api.upload_folder(
                     commit_message="End of training",
